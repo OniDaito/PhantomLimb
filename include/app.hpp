@@ -19,6 +19,7 @@
 #include "s9/gl/glfw_app.hpp"
 #include "s9/image.hpp"
 #include "s9/gl/texture.hpp"
+#include "s9/gl/fbo.hpp"
 #include "s9/md5.hpp"
 #include "s9/composite_shapes.hpp"
 #include "s9/oculus/oculus.hpp"
@@ -56,13 +57,18 @@ namespace s9 {
 
 		// Cameras
 		Camera camera_;
-		Camera ortho_camera_;
+		Camera camera_ortho_;
+		Camera 				camera_left_;
+		Camera 				camera_right_;
 		
 		// Global Nodes
 
 		Node node_model_;
 		Node node_depth_;
     Node node_colour_;
+
+    Node 					node_left_;
+		Node 					node_right_;
 
 		
 		// Model Classes
@@ -74,6 +80,9 @@ namespace s9 {
 		glm::quat oculus_rotation_dt_;
 		glm::quat oculus_rotation_prev_;
 
+		gl::FBO				fbo_;
+		GLuint				null_VAO_;
+
 		// OpenNI
 		s9::oni::OpenNIBase openni_;
     s9::oni::OpenNISkeleton openni_skeleton_tracker_;
@@ -83,6 +92,7 @@ namespace s9 {
 		gl::Shader shader_skinning_;
 		gl::Shader shader_quad_;
 		gl::Shader shader_colour_;
+		gl::Shader 		shader_warp_;
 
 		// Temp bytes for data off the cameras
 

@@ -20,11 +20,15 @@ using namespace s9::oni;
 
  void PhantomLimb::init(){
 
-    // File Load
+  // File Load
 
   shader_skinning_ = Shader(s9::File("./data/skinning.glsl"));
   shader_quad_= Shader( s9::File("./data/quad_texture.vert"), s9::File("./data/quad_texture.frag"));
   shader_colour_ = Shader(s9::File("./data/solid_colour.glsl"));
+
+   shader_warp_ = Shader( s9::File("./data/barrel.vert"), 
+        s9::File("./data/barrel.frag"),
+        s9::File("./data/barrel.geom"));
 
   addWindowListener(this);
 
@@ -39,21 +43,29 @@ using namespace s9::oni;
 
   // Virtual Cameras
 
-  camera_= Camera( glm::vec3(0.0f,12.5f,-12.0f),  glm::vec3(0.0,12.5f,-10.0f));
+  camera_= Camera( glm::vec3(0.0f,12.5f,-1.5f),  glm::vec3(0.0,12.5f,-4.0f));
+  camera_.set_update_on_node_draw(false);
+  camera_.resize(1280,800);
 
-  ortho_camera_ = Camera(glm::vec3(0.0f,0.0f,0.1f));
-  ortho_camera_.set_near(0.01f);
-  ortho_camera_.set_far(1.0f);
-  ortho_camera_.set_orthographic(true);
+  camera_left_ = Camera(glm::vec3(0.0f,0.0f,0.0f));
+  camera_right_ = Camera(glm::vec3(0.0f,0.0f,0.0f));
+
+  camera_left_.set_update_on_node_draw(false);
+  camera_right_.set_update_on_node_draw(false);
+
+  camera_ortho_ = Camera(glm::vec3(0.0f,0.0f,0.1f));
+  camera_ortho_.set_near(0.01f);
+  camera_ortho_.set_far(1.0f);
+  camera_ortho_.set_orthographic(true);
 
   // MD5 Model Load
 
-  md5_ = MD5Model( s9::File("./data/hellknight.md5mesh") ); 
-  md5_.set_geometry_cast(WIREFRAME);
+  md5_ = MD5Model( s9::File("./data/hellknight/hellknight.md5mesh") ); 
+  //md5_.set_geometry_cast(WIREFRAME);
 
   // Nodes
 
-  node_model_.add(md5_).add(camera_).add(shader_skinning_);
+  node_model_.add(md5_).add(shader_skinning_);
 
   glm::mat4 mat = glm::rotate(glm::mat4(), 180.0f, glm::vec3(0.0f, 1.0f, 0.0f));
   mat = glm::rotate(mat, -90.0f, glm::vec3(1.0f, 0.0f, 0.0f));
@@ -62,32 +74,27 @@ using namespace s9::oni;
   node_model_.setMatrix(mat);
 
   quad_ = Quad(320,240);
-  node_depth_.add(quad_).add(shader_quad_).add(ortho_camera_);
-  node_colour_.add(quad_).add(shader_quad_).add(ortho_camera_);
+  node_depth_.add(quad_).add(shader_quad_).add(camera_ortho_);
+  node_colour_.add(quad_).add(shader_quad_).add(camera_ortho_);
 
-    // Skeleton Shape
+  // Skeleton Shape
 
   skeleton_shape_ = SkeletonShape(md5_.skeleton());
-  skeleton_shape_.set_geometry_cast(WIREFRAME);
-  skeleton_shape_.add(shader_colour_).add(camera_);
-  
-  node_model_.add(skeleton_shape_);
+  //skeleton_shape_.set_geometry_cast(WIREFRAME);
+  //skeleton_shape_.add(shader_colour_).add(camera_);
+  //node_model_.add(skeleton_shape_);
 
-
-    // Camera Buffers
-
-  camera_buffer_ = new byte_t[320 * 240 * 4];
-  memset(camera_buffer_, 255, 320 * 240 * 4);
-
-  texture_ = Texture(320, 240, RGBA, UNSIGNED_BYTE, camera_buffer_);
+  node_left_.add(camera_left_).add(node_model_);
+  node_right_.add(camera_right_).add(node_model_);
 
   CXGLERROR
 
   // OpenGL Defaults
 
   glEnable(GL_DEPTH_TEST);
-  //glEnable(GL_CULL_FACE);
-  //glCullFace(GL_BACK);
+  glEnable(GL_CULL_FACE);
+  glCullFace(GL_BACK);
+
 }
 
 void PhantomLimb::update(double_t dt) {
@@ -95,13 +102,8 @@ void PhantomLimb::update(double_t dt) {
   // update the skeleton positions
   md5_.skeleton().update();
 
-  // Update our cameras
-  ortho_camera_.update(dt);
-  camera_.update(dt);
-
   // Update Oculus - take the difference
   oculus_.update(dt);
-
 
   // Now copy over the positions of the captured skeleton to the MD5
 
@@ -145,46 +147,107 @@ void PhantomLimb::update(double_t dt) {
 
  void PhantomLimb::display(double_t dt){
 
-    // Clear
-  glClearBufferfv(GL_COLOR, 0, &glm::vec4(0.9f, 0.9f, 0.9f, 1.0f)[0]);
   GLfloat depth = 1.0f;
+
+  // Create the FBO and setup the cameras
+  if (!fbo_ && oculus_.connected()){
+    
+      glm::vec2 s = oculus_.fbo_size();
+      fbo_ = FBO(static_cast<size_t>(s.x), static_cast<size_t>(s.y)); 
+
+      camera_left_.resize(static_cast<size_t>(s.x / 2.0f), static_cast<size_t>(s.y ));
+      camera_right_.resize(static_cast<size_t>(s.x / 2.0f), static_cast<size_t>(s.y ),static_cast<size_t>(s.x / 2.0f) );
+
+      camera_.resize(static_cast<size_t>(s.x ), static_cast<size_t>(s.y ));
+
+      camera_left_.set_projection_matrix(oculus_.left_projection());
+      camera_right_.set_projection_matrix(oculus_.right_projection());
+
+      camera_ortho_.resize(oculus_.screen_resolution().x, oculus_.screen_resolution().y);
+
+      glGenVertexArrays(1, &(null_VAO_));
+      
+  }
+
+  if (fbo_){
+    fbo_.bind();
+    // Clear
+    glClearBufferfv(GL_COLOR, 0, &glm::vec4(0.9f, 0.9f, 0.9f, 1.0f)[0]);
+    glClearBufferfv(GL_DEPTH, 0, &depth );
+
+    // Grab Textures
+    openni_.update(); // While thread safe, its best to put this immediately before the update_textures
+    
+    //openni_.update_textures(); ///\todo this is causing errors
+
+    // Alter camera with the oculus
+    glm::quat q = glm::inverse(oculus_.orientation());
+    oculus_rotation_dt_ = glm::inverse(oculus_rotation_prev_) * q;
+    oculus_rotation_prev_ =  q;
+    camera_.rotate(oculus_rotation_dt_);
+    camera_.update();
+
+    camera_left_.set_view_matrix( camera_.view_matrix() * oculus_.left_inter() );
+    camera_right_.set_view_matrix(  camera_.view_matrix() * oculus_.right_inter() );
+
+    // Draw Model
+
+    node_left_.draw();
+    node_right_.draw();
+
+    // Draw textures from the camera
+    /*
+    glm::mat4 mat = glm::translate(glm::mat4(1.0f), glm::vec3(160,120,0));
+    node_depth_.setMatrix(mat);
+    openni_.texture_depth().bind();
+    node_depth_.draw();
+    openni_.texture_depth().unbind();
+
+    mat = glm::translate(glm::mat4(1.0f), glm::vec3(480,120,0));
+    node_colour_.setMatrix(mat);
+    openni_.texture_colour().bind();
+    node_colour_.draw();
+    openni_.texture_colour().unbind();
+
+    */
+
+    fbo_.unbind();
+    //CXGLERROR
+  }
+
+
+  // Draw to main screen - this cheats and uses a geometry shader
+
+  // Be wary here that we are messing with the polygon mode up the chain
+
+  glClearBufferfv(GL_COLOR, 0, &glm::vec4(0.9f, 0.9f, 0.9f, 1.0f)[0]);
   glClearBufferfv(GL_DEPTH, 0, &depth );
 
-  // Grab Textures
-  openni_.update(); // While thread safe, its best to put this immediately before the update_textures
-  openni_.update_textures();
+  glBindVertexArray(null_VAO_);
 
-  // Alter camera with the oculus
-  glm::quat q = glm::inverse(oculus_.orientation());
-  oculus_rotation_dt_ = glm::inverse(oculus_rotation_prev_) * q;
-  oculus_rotation_prev_ =  q;
-  camera_.rotate(oculus_rotation_dt_);
+  glViewport(0,0, camera_ortho_.width(), camera_ortho_.height());
 
-  // Draw Model
+  shader_warp_.bind();
+  fbo_.colour().bind();
 
-  node_model_.draw();
+  shader_warp_.s("uDistortionOffset", oculus_.distortion_xcenter_offset()); // Can change with future headsets apparently
+  shader_warp_.s("uDistortionScale", 1.0f/oculus_.distortion_scale());
+  shader_warp_.s("uChromAbParam", oculus_.chromatic_abberation());
+  shader_warp_.s("uHmdWarpParam",oculus_.distortion_parameters() );
 
-  // Draw textures from the camera
-  
-  glm::mat4 mat = glm::translate(glm::mat4(1.0f), glm::vec3(160,120,0));
-  node_depth_.setMatrix(mat);
-  openni_.texture_depth().bind();
-  node_depth_.draw();
-  openni_.texture_depth().unbind();
+  glDrawArrays(GL_POINTS, 0, 1);
 
-  mat = glm::translate(glm::mat4(1.0f), glm::vec3(480,120,0));
-  node_colour_.setMatrix(mat);
-  openni_.texture_colour().bind();
-  node_colour_.draw();
-  openni_.texture_colour().unbind();
-  
+  fbo_.colour().unbind();
+  shader_warp_.unbind();
 
-  //CXGLERROR
+  glBindVertexArray(0);
+
+  //CXGLERROR -  annoyingly there is an error
 }
 
 
 PhantomLimb::~PhantomLimb() {   
-  delete[] camera_buffer_;
+
 }
 
 
@@ -198,10 +261,8 @@ PhantomLimb::~PhantomLimb() {
  * Called when the window is resized. You should set cameras here
  */
 
- void PhantomLimb::processEvent(ResizeEvent e){
-  glViewport(0,0,e.w,e.h);
-  camera_.resize(e.w,e.h);
-  ortho_camera_.resize(e.w,e.h);
+void PhantomLimb::processEvent(ResizeEvent e){
+  camera_ortho_.resize(e.w,e.h);
 }
 
 void PhantomLimb::processEvent(KeyboardEvent e){}
@@ -215,9 +276,9 @@ void PhantomLimb::processEvent(KeyboardEvent e){}
   PhantomLimb b;
 
 #ifdef _SEBURO_OSX
-  GLFWApp a(b, 800, 600, false, argc, argv, "MD5", 3, 2);
+  GLFWApp a(b, 1280, 800, false, argc, argv, "Phantom Limb", 3, 2);
 #else
-  GLFWApp a(b, 800, 600, false, argc, argv, "MD5");
+  GLFWApp a(b, 1280, 800, false, argc, argv, "Phantom Limb");
 #endif
 
   return EXIT_SUCCESS;
