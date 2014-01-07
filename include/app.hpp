@@ -6,8 +6,8 @@
 *
 */
 
-#ifndef MD5APP_HPP
-#define MD5APP_HPP
+#ifndef PHANTOM_LIMB_HPP
+#define PHANTOM_LIMB_HPP
 
 #include "s9/common.hpp"
 #include "s9/file.hpp"
@@ -16,7 +16,7 @@
 #include "s9/node.hpp"
 #include "s9/gl/drawable.hpp"
 #include "s9/gl/shader.hpp"
-#include "s9/gl/glfw_app.hpp"
+#include "s9/gl/glfw.hpp"
 #include "s9/image.hpp"
 #include "s9/gl/texture.hpp"
 #include "s9/gl/fbo.hpp"
@@ -25,26 +25,53 @@
 #include "s9/oculus/oculus.hpp"
 #include "s9/openni/openni.hpp"
 
-#include "anttweakbar/AntTweakBar.h"
 
+#include <gtkmm.h>
  
 namespace s9 {
+
+
+#ifdef _SEBURO_LINUX
+
+	class PhantomLimb;
+
+	/*
+ 	 * UX Window for the Application. Runs on the main screen
+ 	 */
+
+	class UXWindow : public Gtk::Window {
+
+	public:
+	  UXWindow(PhantomLimb &app);
+	  virtual ~UXWindow();
+
+	protected:
+	  //Signal handlers:
+	  void on_button_clicked();
+
+	  Gtk::Button button_;
+
+	  PhantomLimb& app_;
+
+	};
+
+#endif
 
 	/*
  	 * Phantom Limb main Oculus 3D Application
  	 */
 
-	class PhantomLimb : public WindowApp, public WindowResponder {
+	class PhantomLimb : public WindowApp<GLFWwindow*> {
 	public:
 		~PhantomLimb();
 		
-		void init();
-		void display(double_t dt);
-		void update(double_t dt);
+		void Init();
+		void Display(GLFWwindow* window, double_t dt);
+		void Update(double_t dt);
 
-		void processEvent(MouseEvent e);
-		void processEvent(KeyboardEvent e);
-		void processEvent(ResizeEvent e);
+		void ProcessEvent(MouseEvent e, GLFWwindow* window);
+		void ProcessEvent(KeyboardEvent e, GLFWwindow* window);
+		void ProcessEvent(ResizeEvent e, GLFWwindow* window);
 
 		
 	protected:
@@ -69,7 +96,6 @@ namespace s9 {
 
     Node 					node_left_;
 		Node 					node_right_;
-
 		
 		// Model Classes
 		MD5Model md5_;
@@ -99,6 +125,7 @@ namespace s9 {
 		byte_t *camera_buffer_;
 
 		float rotation_;
+
 		
 	};
 }

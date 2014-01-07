@@ -3,7 +3,7 @@
 # http://www.cmake.org/Wiki/CMake_Useful_Variables
 
 cmake_minimum_required (VERSION 2.8) 
-project (SeburoApp) 
+project (PhantomLimb) 
 
 set(SEBUROAPP_VERSION_MAJOR "0")
 set(SEBUROAPP_VERSION_MINOR "1")
@@ -167,8 +167,6 @@ if (_SEBURO_LINUX)
   SEBURO_find_pkgconfig_lib(xi)
   
   SEBURO_find_library(glfw)
-  SEBURO_find_library(AntTweakBar)
-  SEBURO_find_library(assimp)
 
   include_directories(${PROJECT_SOURCE_DIR}/lib
     ${SEBURO_DIR}/include
@@ -211,8 +209,6 @@ elseif(_SEBURO_OSX)
     CACHE STRING "Local Library search paths" FORCE)
 
   SEBURO_find_library(glfw)
-  SEBURO_find_library(AntTweakBar)
-  SEBURO_find_library(AssImp)
 
   include_directories(${PROJECT_SOURCE_DIR}/lib
     ${SEBURO_DIR}/include
@@ -245,7 +241,6 @@ elseif(_SEBURO_WIN32)
   find_package(OpenGL REQUIRED)
 
   SEBURO_find_library(glfw) # Built from the github version 3 build
-  SEBURO_find_library(AntTweakBar)
 
 
 else()
@@ -338,50 +333,50 @@ if (USE_OPENNI)
     # We must change the NITE reference to the moved OpenNI
 
 
-    add_custom_command (TARGET SeburoApp PRE_BUILD
-                      COMMAND cp ${OPENNI_LIBRARY} ${CMAKE_CURRENT_BINARY_DIR}/SeburoApp.app/Contents/Resources/.)
+    add_custom_command (TARGET PhantomLimb PRE_BUILD
+                      COMMAND cp ${OPENNI_LIBRARY} ${CMAKE_CURRENT_BINARY_DIR}/PhantomLimb.app/Contents/Resources/.)
 
-    add_custom_command (TARGET SeburoApp PRE_BUILD
-                      COMMAND cp ${NITE_LIBRARY} ${CMAKE_CURRENT_BINARY_DIR}/SeburoApp.app/Contents/Resources/.)
+    add_custom_command (TARGET PhantomLimb PRE_BUILD
+                      COMMAND cp ${NITE_LIBRARY} ${CMAKE_CURRENT_BINARY_DIR}/PhantomLimb.app/Contents/Resources/.)
   
 
     # TODO - replace the ini file to actually move the nite2 dir into Resources
-    add_custom_command (TARGET SeburoApp POST_BUILD
-                        COMMAND cp -r ${NITE_LIBRARY_PATH}/NiTE2 ${CMAKE_CURRENT_BINARY_DIR}/SeburoApp.app/Contents/MacOS/.)
+    add_custom_command (TARGET PhantomLimb POST_BUILD
+                        COMMAND cp -r ${NITE_LIBRARY_PATH}/NiTE2 ${CMAKE_CURRENT_BINARY_DIR}/PhantomLimb.app/Contents/MacOS/.)
 
-    add_custom_command (TARGET SeburoApp POST_BUILD
-                        COMMAND cp -r ${NITE_LIBRARY_PATH}/NiTE2 ${CMAKE_CURRENT_BINARY_DIR}/SeburoApp.app/Contents/MacOS/.)
+    add_custom_command (TARGET PhantomLimb POST_BUILD
+                        COMMAND cp -r ${NITE_LIBRARY_PATH}/NiTE2 ${CMAKE_CURRENT_BINARY_DIR}/PhantomLimb.app/Contents/MacOS/.)
 
 
-    add_custom_command (TARGET SeburoApp PRE_BUILD
-                      COMMAND cp -r ${OPENNI_LIBRARY_PATH}/OpenNI2 ${CMAKE_CURRENT_BINARY_DIR}/SeburoApp.app/Contents/Resources/.)
+    add_custom_command (TARGET PhantomLimb PRE_BUILD
+                      COMMAND cp -r ${OPENNI_LIBRARY_PATH}/OpenNI2 ${CMAKE_CURRENT_BINARY_DIR}/PhantomLimb.app/Contents/Resources/.)
   
-    add_custom_command (TARGET SeburoApp POST_BUILD
-                      COMMAND install_name_tool -change  ${OPENNI_LIBRARY_FILE} @executable_path/../Resources/${OPENNI_LIBRARY_FILE} ${CMAKE_CURRENT_BINARY_DIR}/SeburoApp.app/Contents/MacOS/SeburoApp)
+    add_custom_command (TARGET PhantomLimb POST_BUILD
+                      COMMAND install_name_tool -change  ${OPENNI_LIBRARY_FILE} @executable_path/../Resources/${OPENNI_LIBRARY_FILE} ${CMAKE_CURRENT_BINARY_DIR}/PhantomLimb.app/Contents/MacOS/PhantomLimb)
   
-    add_custom_command (TARGET SeburoApp POST_BUILD
-                      COMMAND install_name_tool -change ${NITE_LIBRARY_FILE} @executable_path/../Resources/${NITE_LIBRARY_FILE} ${CMAKE_CURRENT_BINARY_DIR}/SeburoApp.app/Contents/MacOS/SeburoApp)
+    add_custom_command (TARGET PhantomLimb POST_BUILD
+                      COMMAND install_name_tool -change ${NITE_LIBRARY_FILE} @executable_path/../Resources/${NITE_LIBRARY_FILE} ${CMAKE_CURRENT_BINARY_DIR}/PhantomLimb.app/Contents/MacOS/PhantomLimb)
   
-    add_custom_command (TARGET SeburoApp POST_BUILD
-                      COMMAND install_name_tool -id  @executable_path/../Resources/${OPENNI_LIBRARY_FILE} ${CMAKE_CURRENT_BINARY_DIR}/SeburoApp.app/Contents/Resources/${OPENNI_LIBRARY_FILE})
+    add_custom_command (TARGET PhantomLimb POST_BUILD
+                      COMMAND install_name_tool -id  @executable_path/../Resources/${OPENNI_LIBRARY_FILE} ${CMAKE_CURRENT_BINARY_DIR}/PhantomLimb.app/Contents/Resources/${OPENNI_LIBRARY_FILE})
     
-    add_custom_command (TARGET SeburoApp POST_BUILD
-                      COMMAND install_name_tool -id  @executable_path/../Resources/${NITE_LIBRARY_FILE} ${CMAKE_CURRENT_BINARY_DIR}/SeburoApp.app/Contents/Resources/${NITE_LIBRARY_FILE})
+    add_custom_command (TARGET PhantomLimb POST_BUILD
+                      COMMAND install_name_tool -id  @executable_path/../Resources/${NITE_LIBRARY_FILE} ${CMAKE_CURRENT_BINARY_DIR}/PhantomLimb.app/Contents/Resources/${NITE_LIBRARY_FILE})
   
-    add_custom_command (TARGET SeburoApp POST_BUILD
-                      COMMAND install_name_tool -change ${OPENNI_LIBRARY_FILE} @executable_path/../Resources/${OPENNI_LIBRARY_FILE} ${CMAKE_CURRENT_BINARY_DIR}/SeburoApp.app/Contents/Resources/${NITE_LIBRARY_FILE})
+    add_custom_command (TARGET PhantomLimb POST_BUILD
+                      COMMAND install_name_tool -change ${OPENNI_LIBRARY_FILE} @executable_path/../Resources/${OPENNI_LIBRARY_FILE} ${CMAKE_CURRENT_BINARY_DIR}/PhantomLimb.app/Contents/Resources/${NITE_LIBRARY_FILE})
   
 
     INSTALL(CODE "
       include(BundleUtilities)
-      fixup_bundle( ${CMAKE_CURRENT_BINARY_DIR}/SeburoApp.app \"\"   \"${DIRS}\")
+      fixup_bundle( ${CMAKE_CURRENT_BINARY_DIR}/PhantomLimb.app \"\"   \"${DIRS}\")
       " COMPONENT Runtime)
 
   elseif(_SEBURO_LINUX)
  
    
     # Now Copy NiTE2 and OpenNI data files
-    add_custom_command (TARGET SeburoApp POST_BUILD
+    add_custom_command (TARGET PhantomLimb POST_BUILD
       COMMAND cp ARGS ${NITE_LIBRARY_PATH}/NiTE.ini ${CMAKE_CURRENT_BINARY_DIR} WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR} COMMENT "Copy NiTE.ini"
       COMMAND cp ARGS -r  ${NITE_LIBRARY_PATH}/NiTE2 ${CMAKE_CURRENT_BINARY_DIR} WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR} COMMENT "Copy NiTE2 Data"
     )
@@ -479,7 +474,7 @@ elseif(_SEBURO_LINUX)
 
 endif()
 
-add_executable(SeburoApp
+add_executable(PhantomLimb
   ${CommonSources}
   ${OpenNISources}
   ${OculusSources}
@@ -490,7 +485,7 @@ add_executable(SeburoApp
 
 # Now link the found libraries to the SEBURO library
 
-target_link_libraries(SeburoApp
+target_link_libraries(PhantomLimb
   ${SEBURO_LIBRARY}
   ${SEBURO_LIBRARIES}
   ${OPENGL_LIBRARY}
@@ -612,50 +607,50 @@ if (USE_OPENNI)
     # We must change the NITE reference to the moved OpenNI
 
 
-    add_custom_command (TARGET SeburoApp PRE_BUILD
-                      COMMAND cp ${OPENNI_LIBRARY} ${CMAKE_CURRENT_BINARY_DIR}/SeburoApp.app/Contents/Resources/.)
+    add_custom_command (TARGET PhantomLimb PRE_BUILD
+                      COMMAND cp ${OPENNI_LIBRARY} ${CMAKE_CURRENT_BINARY_DIR}/PhantomLimb.app/Contents/Resources/.)
 
-    add_custom_command (TARGET SeburoApp PRE_BUILD
-                      COMMAND cp ${NITE_LIBRARY} ${CMAKE_CURRENT_BINARY_DIR}/SeburoApp.app/Contents/Resources/.)
+    add_custom_command (TARGET PhantomLimb PRE_BUILD
+                      COMMAND cp ${NITE_LIBRARY} ${CMAKE_CURRENT_BINARY_DIR}/PhantomLimb.app/Contents/Resources/.)
   
 
     # TODO - replace the ini file to actually move the nite2 dir into Resources
-    add_custom_command (TARGET SeburoApp POST_BUILD
-                        COMMAND cp -r ${NITE_LIBRARY_PATH}/NiTE2 ${CMAKE_CURRENT_BINARY_DIR}/SeburoApp.app/Contents/MacOS/.)
+    add_custom_command (TARGET PhantomLimb POST_BUILD
+                        COMMAND cp -r ${NITE_LIBRARY_PATH}/NiTE2 ${CMAKE_CURRENT_BINARY_DIR}/PhantomLimb.app/Contents/MacOS/.)
 
-    add_custom_command (TARGET SeburoApp POST_BUILD
-                        COMMAND cp -r ${NITE_LIBRARY_PATH}/NiTE2 ${CMAKE_CURRENT_BINARY_DIR}/SeburoApp.app/Contents/MacOS/.)
+    add_custom_command (TARGET PhantomLimb POST_BUILD
+                        COMMAND cp -r ${NITE_LIBRARY_PATH}/NiTE2 ${CMAKE_CURRENT_BINARY_DIR}/PhantomLimb.app/Contents/MacOS/.)
 
 
-    add_custom_command (TARGET SeburoApp PRE_BUILD
-                      COMMAND cp -r ${OPENNI_LIBRARY_PATH}/OpenNI2 ${CMAKE_CURRENT_BINARY_DIR}/SeburoApp.app/Contents/Resources/.)
+    add_custom_command (TARGET PhantomLimb PRE_BUILD
+                      COMMAND cp -r ${OPENNI_LIBRARY_PATH}/OpenNI2 ${CMAKE_CURRENT_BINARY_DIR}/PhantomLimb.app/Contents/Resources/.)
   
-    add_custom_command (TARGET SeburoApp POST_BUILD
-                      COMMAND install_name_tool -change  ${OPENNI_LIBRARY_FILE} @executable_path/../Resources/${OPENNI_LIBRARY_FILE} ${CMAKE_CURRENT_BINARY_DIR}/SeburoApp.app/Contents/MacOS/SeburoApp)
+    add_custom_command (TARGET PhantomLimb POST_BUILD
+                      COMMAND install_name_tool -change  ${OPENNI_LIBRARY_FILE} @executable_path/../Resources/${OPENNI_LIBRARY_FILE} ${CMAKE_CURRENT_BINARY_DIR}/PhantomLimb.app/Contents/MacOS/PhantomLimb)
   
-    add_custom_command (TARGET SeburoApp POST_BUILD
-                      COMMAND install_name_tool -change ${NITE_LIBRARY_FILE} @executable_path/../Resources/${NITE_LIBRARY_FILE} ${CMAKE_CURRENT_BINARY_DIR}/SeburoApp.app/Contents/MacOS/SeburoApp)
+    add_custom_command (TARGET PhantomLimb POST_BUILD
+                      COMMAND install_name_tool -change ${NITE_LIBRARY_FILE} @executable_path/../Resources/${NITE_LIBRARY_FILE} ${CMAKE_CURRENT_BINARY_DIR}/PhantomLimb.app/Contents/MacOS/PhantomLimb)
   
-    add_custom_command (TARGET SeburoApp POST_BUILD
-                      COMMAND install_name_tool -id  @executable_path/../Resources/${OPENNI_LIBRARY_FILE} ${CMAKE_CURRENT_BINARY_DIR}/SeburoApp.app/Contents/Resources/${OPENNI_LIBRARY_FILE})
+    add_custom_command (TARGET PhantomLimb POST_BUILD
+                      COMMAND install_name_tool -id  @executable_path/../Resources/${OPENNI_LIBRARY_FILE} ${CMAKE_CURRENT_BINARY_DIR}/PhantomLimb.app/Contents/Resources/${OPENNI_LIBRARY_FILE})
     
-    add_custom_command (TARGET SeburoApp POST_BUILD
-                      COMMAND install_name_tool -id  @executable_path/../Resources/${NITE_LIBRARY_FILE} ${CMAKE_CURRENT_BINARY_DIR}/SeburoApp.app/Contents/Resources/${NITE_LIBRARY_FILE})
+    add_custom_command (TARGET PhantomLimb POST_BUILD
+                      COMMAND install_name_tool -id  @executable_path/../Resources/${NITE_LIBRARY_FILE} ${CMAKE_CURRENT_BINARY_DIR}/PhantomLimb.app/Contents/Resources/${NITE_LIBRARY_FILE})
   
-    add_custom_command (TARGET SeburoApp POST_BUILD
-                      COMMAND install_name_tool -change ${OPENNI_LIBRARY_FILE} @executable_path/../Resources/${OPENNI_LIBRARY_FILE} ${CMAKE_CURRENT_BINARY_DIR}/SeburoApp.app/Contents/Resources/${NITE_LIBRARY_FILE})
+    add_custom_command (TARGET PhantomLimb POST_BUILD
+                      COMMAND install_name_tool -change ${OPENNI_LIBRARY_FILE} @executable_path/../Resources/${OPENNI_LIBRARY_FILE} ${CMAKE_CURRENT_BINARY_DIR}/PhantomLimb.app/Contents/Resources/${NITE_LIBRARY_FILE})
   
 
     INSTALL(CODE "
       include(BundleUtilities)
-      fixup_bundle( ${CMAKE_CURRENT_BINARY_DIR}/SeburoApp.app \"\"   \"${DIRS}\")
+      fixup_bundle( ${CMAKE_CURRENT_BINARY_DIR}/PhantomLimb.app \"\"   \"${DIRS}\")
       " COMPONENT Runtime)
 
   elseif(_SEBURO_LINUX)
  
    
     # Now Copy NiTE2 and OpenNI data files
-    add_custom_command (TARGET SeburoApp POST_BUILD
+    add_custom_command (TARGET PhantomLimb POST_BUILD
       COMMAND cp ARGS ${NITE_LIBRARY_PATH}/NiTE.ini ${CMAKE_CURRENT_BINARY_DIR} WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR} COMMENT "Copy NiTE.ini"
       COMMAND cp ARGS -r  ${NITE_LIBRARY_PATH}/NiTE2 ${CMAKE_CURRENT_BINARY_DIR} WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR} COMMENT "Copy NiTE2 Data"
     )

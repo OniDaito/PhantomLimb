@@ -18,7 +18,7 @@ using namespace s9::oni;
  * Called when the mainloop starts, just once
  */
 
- void PhantomLimb::init(){
+ void PhantomLimb::Init(){
 
   // File Load
 
@@ -29,8 +29,6 @@ using namespace s9::oni;
    shader_warp_ = Shader( s9::File("./data/barrel.vert"), 
         s9::File("./data/barrel.frag"),
         s9::File("./data/barrel.geom"));
-
-  addWindowListener(this);
 
   // Oculus Rift Setup
 
@@ -97,7 +95,7 @@ using namespace s9::oni;
 
 }
 
-void PhantomLimb::update(double_t dt) {
+void PhantomLimb::Update(double_t dt) {
 
   // update the skeleton positions
   md5_.skeleton().update();
@@ -145,7 +143,7 @@ void PhantomLimb::update(double_t dt) {
  * Called as fast as possible. Not set FPS wise but dt is passed in
  */
 
- void PhantomLimb::display(double_t dt){
+ void PhantomLimb::Display(GLFWwindow* window, double_t dt){
 
   GLfloat depth = 1.0f;
 
@@ -213,36 +211,35 @@ void PhantomLimb::update(double_t dt) {
 
     fbo_.unbind();
     //CXGLERROR
+
+    // Draw to main screen - this cheats and uses a geometry shader
+
+    // Be wary here that we are messing with the polygon mode up the chain
+
+    glClearBufferfv(GL_COLOR, 0, &glm::vec4(0.9f, 0.9f, 0.9f, 1.0f)[0]);
+    glClearBufferfv(GL_DEPTH, 0, &depth );
+
+    glBindVertexArray(null_VAO_);
+
+    glViewport(0,0, camera_ortho_.width(), camera_ortho_.height());
+
+    shader_warp_.bind();
+    fbo_.colour().bind();
+
+    shader_warp_.s("uDistortionOffset", oculus_.distortion_xcenter_offset()); // Can change with future headsets apparently
+    shader_warp_.s("uDistortionScale", 1.0f/oculus_.distortion_scale());
+    shader_warp_.s("uChromAbParam", oculus_.chromatic_abberation());
+    shader_warp_.s("uHmdWarpParam",oculus_.distortion_parameters() );
+
+    glDrawArrays(GL_POINTS, 0, 1);
+
+    fbo_.colour().unbind();
+    shader_warp_.unbind();
+
+    glBindVertexArray(0);
+
+    //CXGLERROR -  annoyingly there is an error
   }
-
-
-  // Draw to main screen - this cheats and uses a geometry shader
-
-  // Be wary here that we are messing with the polygon mode up the chain
-
-  glClearBufferfv(GL_COLOR, 0, &glm::vec4(0.9f, 0.9f, 0.9f, 1.0f)[0]);
-  glClearBufferfv(GL_DEPTH, 0, &depth );
-
-  glBindVertexArray(null_VAO_);
-
-  glViewport(0,0, camera_ortho_.width(), camera_ortho_.height());
-
-  shader_warp_.bind();
-  fbo_.colour().bind();
-
-  shader_warp_.s("uDistortionOffset", oculus_.distortion_xcenter_offset()); // Can change with future headsets apparently
-  shader_warp_.s("uDistortionScale", 1.0f/oculus_.distortion_scale());
-  shader_warp_.s("uChromAbParam", oculus_.chromatic_abberation());
-  shader_warp_.s("uHmdWarpParam",oculus_.distortion_parameters() );
-
-  glDrawArrays(GL_POINTS, 0, 1);
-
-  fbo_.colour().unbind();
-  shader_warp_.unbind();
-
-  glBindVertexArray(0);
-
-  //CXGLERROR -  annoyingly there is an error
 }
 
 
@@ -255,31 +252,80 @@ PhantomLimb::~PhantomLimb() {
  * This is called by the wrapper function when an event is fired
  */
 
- void PhantomLimb::processEvent(MouseEvent e){}
+void PhantomLimb::ProcessEvent(MouseEvent e, GLFWwindow* window){}
 
 /*
  * Called when the window is resized. You should set cameras here
  */
 
-void PhantomLimb::processEvent(ResizeEvent e){
+void PhantomLimb::ProcessEvent(ResizeEvent e, GLFWwindow* window){
   camera_ortho_.resize(e.w,e.h);
 }
 
-void PhantomLimb::processEvent(KeyboardEvent e){}
+void PhantomLimb::ProcessEvent(KeyboardEvent e, GLFWwindow* window){}
+
+
+
+/*
+ * The UX window Class
+ */
+
+#ifdef _SEBURO_LINUX
+
+
+UXWindow::UXWindow(PhantomLimb &app) : app_(app), button_ ("Hello World")  {   // creates a new button with label "Hello World".
+  // Sets the border width of the window.
+  set_border_width(10);
+
+  // When the button receives the "clicked" signal, it will call the
+  // on_button_clicked() method defined below.
+  button_.signal_clicked().connect(sigc::mem_fun(*this, &UXWindow::on_button_clicked));
+
+  // This packs the button into the Window (a container).
+  add(button_);
+
+  show_all();
+
+}
+
+UXWindow::~UXWindow() {
+  // Need to signal that we are done here
+}
+
+void UXWindow::on_button_clicked() {
+  cout << "Hello World" << endl;
+}
+
+#endif
+
 
 /*
  * Main function - uses boost to parse program arguments
  */
 
- int main (int argc, const char * argv[]) {
+int main (int argc, const char * argv[]) {
 
   PhantomLimb b;
 
-#ifdef _SEBURO_OSX
-  GLFWApp a(b, 1280, 800, false, argc, argv, "Phantom Limb", 3, 2);
-#else
-  GLFWApp a(b, 1280, 800, false, argc, argv, "Phantom Limb");
+  #ifdef _SEBURO_LINUX
+  cout << "ARSE" << endl;
 #endif
+
+#ifdef _SEBURO_OSX
+  WithUXApp a(b,argc,argv,3,2);
+#else
+  WithUXApp a(b,argc,argv);
+#endif
+
+  // Change HDMI-0 to whatever is listed in the output for the GLFW Monitor Screens
+  a.CreateWindowFullScreen("Oculus", 0, 0, "HDMI-0");
+  
+  UXWindow ux(b);
+
+  a.Run(ux);
+
+  // Call shutdown once the GTK Run loop has quit. This makes GLFW quit cleanly
+  a.Shutdown();
 
   return EXIT_SUCCESS;
 
