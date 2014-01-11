@@ -41,7 +41,7 @@ elseif (UNIX AND NOT APPLE)
     add_definitions(-D_SEBURO_LINUX)
     message(STATUS "Building on a Unix-like system")
     FILE(GLOB OSSources src/linux/*)
-    SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -pthread")
+    SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wl,--warn-unresolved-symbols -std=c++11 -pthread -Wl,--no-as-needed")
 else()
     message(FATAL_ERROR "No supported platform was detected")
 endif()
@@ -62,7 +62,7 @@ if(DEBUG)
 
 else()
   # TODO - add optimisations here
-  SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -NDEBUG")
+  #SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -NDEBUG")
 endif()
 
 ################################

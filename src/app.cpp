@@ -32,7 +32,7 @@ using namespace s9::oni;
 
   // Oculus Rift Setup
 
-  oculus_ = oculus::OculusBase(true);
+  oculus_ = oculus::OculusBase(0.01f, 100.0f);
 
   // OpenNI
   openni_ = OpenNIBase(openni::ANY_DEVICE);
@@ -40,9 +40,10 @@ using namespace s9::oni;
 
 
   // Virtual Cameras
-
-  camera_= Camera( glm::vec3(0.0f,12.5f,-1.5f),  glm::vec3(0.0,12.5f,-4.0f));
+  // Calibrated for the Sintel Model
+  camera_= Camera( glm::vec3(0.0f,1.51f,-0.02),  glm::vec3(0.0,1.51f,-4.0f));
   camera_.set_update_on_node_draw(false);
+  camera_.set_near(0.01f);
   camera_.resize(1280,800);
 
   camera_left_ = Camera(glm::vec3(0.0f,0.0f,0.0f));
@@ -58,7 +59,7 @@ using namespace s9::oni;
 
   // MD5 Model Load
 
-  md5_ = MD5Model( s9::File("./data/hellknight/hellknight.md5mesh") ); 
+  md5_ = MD5Model( s9::File("./data/sintel_lite/sintel_lite.md5mesh") ); 
   //md5_.set_geometry_cast(WIREFRAME);
 
   // Nodes
@@ -67,9 +68,9 @@ using namespace s9::oni;
 
   glm::mat4 mat = glm::rotate(glm::mat4(), 180.0f, glm::vec3(0.0f, 1.0f, 0.0f));
   mat = glm::rotate(mat, -90.0f, glm::vec3(1.0f, 0.0f, 0.0f));
-  mat = glm::scale(mat, glm::vec3(0.1f,0.1f,0.1f));
+  //mat = glm::scale(mat, glm::vec3(0.1f,0.1f,0.1f));
   
-  node_model_.setMatrix(mat);
+  node_model_.set_matrix(mat);
 
   quad_ = Quad(320,240);
   node_depth_.add(quad_).add(shader_quad_).add(camera_ortho_);
@@ -122,7 +123,22 @@ void PhantomLimb::Update(double_t dt) {
       glm::quat rz = glm::angleAxis(180.0f, glm::vec3(0.0f,0.0f,1.0f));
       glm::quat rzi = glm::inverse(rz);
 
-      Bone * luparm = md5_.skeleton().bone("luparm");
+      glm::quat rys = glm::angleAxis(-90.0f, glm::vec3(0.0f,1.0f,0.0f));
+      glm::quat rysi = glm::inverse(rys);
+
+      glm::quat rzs = glm::angleAxis(-90.0f, glm::vec3(0.0f,0.0f,1.0f));
+      glm::quat rzsi = glm::inverse(rzs);
+
+
+      glm::quat nrys = glm::angleAxis(90.0f, glm::vec3(0.0f,1.0f,0.0f));
+      glm::quat nrysi = glm::inverse(nrys);
+
+      glm::quat nrzs = glm::angleAxis(90.0f, glm::vec3(0.0f,0.0f,1.0f));
+      glm::quat nrzsi = glm::inverse(nrzs);
+
+
+
+      /*Bone * luparm = md5_.skeleton().bone("luparm");
       luparm->set_rotation_relative( ry * user.skeleton().bone("Left Shoulder")->rotation() * ryi );
 
       Bone * lloarm = md5_.skeleton().bone("lloarm");
@@ -133,6 +149,22 @@ void PhantomLimb::Update(double_t dt) {
 
       Bone * rloarm = md5_.skeleton().bone("rloarm");
       rloarm->set_rotation_relative( rx * ry * user.skeleton().bone("Right Elbow")->rotation() * ryi * rxi );
+      */
+
+      // Sintel's bones have different alignments in the arms due to some blender issues it seems
+      ///\todo we should always get a consistent postion for bones
+ 
+      Bone * luparm = md5_.skeleton().bone("upper_arm.L");
+      luparm->set_rotation_relative( rys * rzs *  user.skeleton().bone("Left Shoulder")->rotation()  * rzsi * rysi );
+
+      Bone * lloarm = md5_.skeleton().bone("lower_arm.L");
+      lloarm->set_rotation_relative(  rys * rzs * user.skeleton().bone("Left Elbow")->rotation() * rzsi * rysi);
+
+      Bone * ruparm = md5_.skeleton().bone("upper_arm.R");
+      ruparm->set_rotation_relative( nrys * nrzs *  user.skeleton().bone("Right Shoulder")->rotation() * nrzsi * nrysi  );
+
+      Bone * rloarm = md5_.skeleton().bone("lower_arm.R");
+      rloarm->set_rotation_relative(  nrys * nrzs  * user.skeleton().bone("Right Elbow")->rotation() * nrzsi * nrysi );
 
     }
   }
@@ -196,13 +228,13 @@ void PhantomLimb::Update(double_t dt) {
     // Draw textures from the camera
     /*
     glm::mat4 mat = glm::translate(glm::mat4(1.0f), glm::vec3(160,120,0));
-    node_depth_.setMatrix(mat);
+    node_depth_.set_matrix(mat);
     openni_.texture_depth().bind();
     node_depth_.draw();
     openni_.texture_depth().unbind();
 
     mat = glm::translate(glm::mat4(1.0f), glm::vec3(480,120,0));
-    node_colour_.setMatrix(mat);
+    node_colour_.set_matrix(mat);
     openni_.texture_colour().bind();
     node_colour_.draw();
     openni_.texture_colour().unbind();
@@ -306,10 +338,6 @@ void UXWindow::on_button_clicked() {
 int main (int argc, const char * argv[]) {
 
   PhantomLimb b;
-
-  #ifdef _SEBURO_LINUX
-  cout << "ARSE" << endl;
-#endif
 
 #ifdef _SEBURO_OSX
   WithUXApp a(b,argc,argv,3,2);
