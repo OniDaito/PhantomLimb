@@ -272,178 +272,179 @@ FILE(GLOB CommonSources src/*)
 # \TODO Should really be library dirs not actual libraries
 
 # OpenNI 
-option(USE_OPENNI "Compile and use OpenNI Librares" ON)
-  
-if (USE_OPENNI)
 
-  # OPENNI_INCLUDE_DIRS - Directories containing the OPENNI include files.
-  # OPENNI_LIBRARIES - Libraries needed to use OPENNI.
 
-  # This setup includes NITE by default
+# OPENNI_INCLUDE_DIRS - Directories containing the OPENNI include files.
+# OPENNI_LIBRARIES - Libraries needed to use OPENNI.
+
+# This setup includes NITE by default
  
-  find_path(OPENNI_INCLUDE_DIR XnStatus.h
-            HINTS  /usr/include/openni /usr/include/ni
-            PATHS "$ENV{PROGRAMFILES}/OpenNI/Include" "$ENV{PROGRAMW6432}/OpenNI/Include"
-            PATH_SUFFIXES openni)
+find_path(OPENNI_INCLUDE_DIR XnStatus.h
+          HINTS  /usr/include/openni /usr/include/ni
+          PATHS "$ENV{PROGRAMFILES}/OpenNI/Include" "$ENV{PROGRAMW6432}/OpenNI/Include"
+          PATH_SUFFIXES openni)
 
-  find_library(OPENNI_LIBRARY
-               NAMES OpenNI64 OpenNI
-               HINTS /usr/lib
-               PATHS "$ENV{PROGRAMFILES}/OpenNI/Lib${OPENNI_SUFFIX}" "$ENV{PROGRAMW6432}/OpenNI/Lib${OPENNI_SUFFIX}"
-               PATH_SUFFIXES lib
-  )
+find_library(OPENNI_LIBRARY
+             NAMES OpenNI64 OpenNI
+             HINTS /usr/lib
+             PATHS "$ENV{PROGRAMFILES}/OpenNI/Lib${OPENNI_SUFFIX}" "$ENV{PROGRAMW6432}/OpenNI/Lib${OPENNI_SUFFIX}"
+             PATH_SUFFIXES lib
+)
 
-  find_library(NITE_LIBRARY
-               NAMES XnVNite XnVNITE_1_3_1 XnVNITE_1_4_0 XnVNite_1_4_2 XnVNite_1_5_2
-               HINTS /usr/lib
-               PATHS "$ENV{PROGRAMFILES}/PrimeSense/NITE/Lib${OPENNI_SUFFIX}" "$ENV{PROGRAMW6432}/PrimeSense/NITE/Lib${OPENNI_SUFFIX}"
-               PATH_SUFFIXES lib
-  )
+find_library(NITE_LIBRARY
+             NAMES XnVNite XnVNITE_1_3_1 XnVNITE_1_4_0 XnVNite_1_4_2 XnVNite_1_5_2
+             HINTS /usr/lib
+             PATHS "$ENV{PROGRAMFILES}/PrimeSense/NITE/Lib${OPENNI_SUFFIX}" "$ENV{PROGRAMW6432}/PrimeSense/NITE/Lib${OPENNI_SUFFIX}"
+             PATH_SUFFIXES lib
+)
+
+find_path(NITE_INCLUDE_DIR XnVSessionManager.h
+          HINTS /usr/include/openni /usr/include/nite
+          PATHS "$ENV{PROGRAMFILES}/PrimeSense/NITE/Include" "$ENV{PROGRAMW6432}/PrimeSense/NITE/Include"
+          PATH_SUFFIXES openni)
  
-  find_path(NITE_INCLUDE_DIR XnVSessionManager.h
-            HINTS /usr/include/openni /usr/include/nite
-            PATHS "$ENV{PROGRAMFILES}/PrimeSense/NITE/Include" "$ENV{PROGRAMW6432}/PrimeSense/NITE/Include"
-            PATH_SUFFIXES openni)
-   
-  set(OPENNI_INCLUDE_DIRS ${OPENNI_INCLUDE_DIR} ${NITE_INCLUDE_DIR})
-  
-  if(_SEBURO_OSX)
-    set(OPENNI_LIBRARIES ${OPENNI_LIBRARY} ${NITE_LIBRARY} usb)
-  else()
-    set(OPENNI_LIBRARIES ${OPENNI_LIBRARY} ${NITE_LIBRARY})
-  endif()
- 
-  add_definitions(-D_SEBURO_OPENNI)
-  include_directories(${OPENNI_INCLUDE_DIRS})
+set(OPENNI_INCLUDE_DIRS ${OPENNI_INCLUDE_DIR} ${NITE_INCLUDE_DIR})
 
-  # Now bundle the data we need to copy
-
-  get_filename_component(OPENNI_LIBRARY_FILE ${OPENNI_LIBRARY} NAME) 
-  get_filename_component(OPENNI_LIBRARY_PATH ${OPENNI_LIBRARY} PATH) 
-  get_filename_component(NITE_LIBRARY_FILE ${NITE_LIBRARY} NAME) 
-  get_filename_component(NITE_LIBRARY_PATH ${NITE_LIBRARY} PATH) 
-
-  if (_SEBURO_OSX)
-    
-    
-    # OpenNI and Nite Libraries
-    # We need to copy the libraries from the absolute path and extract the filenames
-    # then when they are copied, we must change their IDs and the app reference path
-    # We must also copy the drivers files to their correct location
-    # We must change the NITE reference to the moved OpenNI
-
-
-    add_custom_command (TARGET PhantomLimb PRE_BUILD
-                      COMMAND cp ${OPENNI_LIBRARY} ${CMAKE_CURRENT_BINARY_DIR}/PhantomLimb.app/Contents/Resources/.)
-
-    add_custom_command (TARGET PhantomLimb PRE_BUILD
-                      COMMAND cp ${NITE_LIBRARY} ${CMAKE_CURRENT_BINARY_DIR}/PhantomLimb.app/Contents/Resources/.)
-  
-
-    # TODO - replace the ini file to actually move the nite2 dir into Resources
-    add_custom_command (TARGET PhantomLimb POST_BUILD
-                        COMMAND cp -r ${NITE_LIBRARY_PATH}/NiTE2 ${CMAKE_CURRENT_BINARY_DIR}/PhantomLimb.app/Contents/MacOS/.)
-
-    add_custom_command (TARGET PhantomLimb POST_BUILD
-                        COMMAND cp -r ${NITE_LIBRARY_PATH}/NiTE2 ${CMAKE_CURRENT_BINARY_DIR}/PhantomLimb.app/Contents/MacOS/.)
-
-
-    add_custom_command (TARGET PhantomLimb PRE_BUILD
-                      COMMAND cp -r ${OPENNI_LIBRARY_PATH}/OpenNI2 ${CMAKE_CURRENT_BINARY_DIR}/PhantomLimb.app/Contents/Resources/.)
-  
-    add_custom_command (TARGET PhantomLimb POST_BUILD
-                      COMMAND install_name_tool -change  ${OPENNI_LIBRARY_FILE} @executable_path/../Resources/${OPENNI_LIBRARY_FILE} ${CMAKE_CURRENT_BINARY_DIR}/PhantomLimb.app/Contents/MacOS/PhantomLimb)
-  
-    add_custom_command (TARGET PhantomLimb POST_BUILD
-                      COMMAND install_name_tool -change ${NITE_LIBRARY_FILE} @executable_path/../Resources/${NITE_LIBRARY_FILE} ${CMAKE_CURRENT_BINARY_DIR}/PhantomLimb.app/Contents/MacOS/PhantomLimb)
-  
-    add_custom_command (TARGET PhantomLimb POST_BUILD
-                      COMMAND install_name_tool -id  @executable_path/../Resources/${OPENNI_LIBRARY_FILE} ${CMAKE_CURRENT_BINARY_DIR}/PhantomLimb.app/Contents/Resources/${OPENNI_LIBRARY_FILE})
-    
-    add_custom_command (TARGET PhantomLimb POST_BUILD
-                      COMMAND install_name_tool -id  @executable_path/../Resources/${NITE_LIBRARY_FILE} ${CMAKE_CURRENT_BINARY_DIR}/PhantomLimb.app/Contents/Resources/${NITE_LIBRARY_FILE})
-  
-    add_custom_command (TARGET PhantomLimb POST_BUILD
-                      COMMAND install_name_tool -change ${OPENNI_LIBRARY_FILE} @executable_path/../Resources/${OPENNI_LIBRARY_FILE} ${CMAKE_CURRENT_BINARY_DIR}/PhantomLimb.app/Contents/Resources/${NITE_LIBRARY_FILE})
-  
-
-    INSTALL(CODE "
-      include(BundleUtilities)
-      fixup_bundle( ${CMAKE_CURRENT_BINARY_DIR}/PhantomLimb.app \"\"   \"${DIRS}\")
-      " COMPONENT Runtime)
-
-  elseif(_SEBURO_LINUX)
- 
-   
-    # Now Copy NiTE2 and OpenNI data files
-    add_custom_command (TARGET PhantomLimb POST_BUILD
-      COMMAND cp ARGS ${NITE_LIBRARY_PATH}/NiTE.ini ${CMAKE_CURRENT_BINARY_DIR} WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR} COMMENT "Copy NiTE.ini"
-      COMMAND cp ARGS -r  ${NITE_LIBRARY_PATH}/NiTE2 ${CMAKE_CURRENT_BINARY_DIR} WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR} COMMENT "Copy NiTE2 Data"
-    )
-
-
-  
-  endif()
-
-
-endif(USE_OPENNI)
-
-# OpenCV.
-
-option(USE_OPENCV "use opencv" OFF)
-
-if (USE_OPENCV)
-  find_package(OpenCV)
-  if (OPENCV_FOUND)
-    add_definitions(-D_SEBURO_OPENCV)
-    include_directories(${OPENCV_INCLUDE_DIRS})
-  endif()
+if(_SEBURO_OSX)
+  set(OPENNI_LIBRARIES ${OPENNI_LIBRARY} ${NITE_LIBRARY} usb)
 else()
-  list(REMOVE_ITEM CommonSources src/cvprocess.cpp)
-endif(USE_OPENCV)
+  set(OPENNI_LIBRARIES ${OPENNI_LIBRARY} ${NITE_LIBRARY})
+endif()
+
+add_definitions(-D_SEBURO_OPENNI)
+include_directories(${OPENNI_INCLUDE_DIRS})
+
+# Now bundle the data we need to copy
+
+get_filename_component(OPENNI_LIBRARY_FILE ${OPENNI_LIBRARY} NAME) 
+get_filename_component(OPENNI_LIBRARY_PATH ${OPENNI_LIBRARY} PATH) 
+get_filename_component(NITE_LIBRARY_FILE ${NITE_LIBRARY} NAME) 
+get_filename_component(NITE_LIBRARY_PATH ${NITE_LIBRARY} PATH) 
+
+if (_SEBURO_OSX)
+  
+  
+  # OpenNI and Nite Libraries
+  # We need to copy the libraries from the absolute path and extract the filenames
+  # then when they are copied, we must change their IDs and the app reference path
+  # We must also copy the drivers files to their correct location
+  # We must change the NITE reference to the moved OpenNI
+
+
+  add_custom_command (TARGET PhantomLimb PRE_BUILD
+                    COMMAND cp ${OPENNI_LIBRARY} ${CMAKE_CURRENT_BINARY_DIR}/PhantomLimb.app/Contents/Resources/.)
+
+  add_custom_command (TARGET PhantomLimb PRE_BUILD
+                    COMMAND cp ${NITE_LIBRARY} ${CMAKE_CURRENT_BINARY_DIR}/PhantomLimb.app/Contents/Resources/.)
+
+
+  # TODO - replace the ini file to actually move the nite2 dir into Resources
+  add_custom_command (TARGET PhantomLimb POST_BUILD
+                      COMMAND cp -r ${NITE_LIBRARY_PATH}/NiTE2 ${CMAKE_CURRENT_BINARY_DIR}/PhantomLimb.app/Contents/MacOS/.)
+
+  add_custom_command (TARGET PhantomLimb POST_BUILD
+                      COMMAND cp -r ${NITE_LIBRARY_PATH}/NiTE2 ${CMAKE_CURRENT_BINARY_DIR}/PhantomLimb.app/Contents/MacOS/.)
+
+
+  add_custom_command (TARGET PhantomLimb PRE_BUILD
+                    COMMAND cp -r ${OPENNI_LIBRARY_PATH}/OpenNI2 ${CMAKE_CURRENT_BINARY_DIR}/PhantomLimb.app/Contents/Resources/.)
+
+  add_custom_command (TARGET PhantomLimb POST_BUILD
+                    COMMAND install_name_tool -change  ${OPENNI_LIBRARY_FILE} @executable_path/../Resources/${OPENNI_LIBRARY_FILE} ${CMAKE_CURRENT_BINARY_DIR}/PhantomLimb.app/Contents/MacOS/PhantomLimb)
+
+  add_custom_command (TARGET PhantomLimb POST_BUILD
+                    COMMAND install_name_tool -change ${NITE_LIBRARY_FILE} @executable_path/../Resources/${NITE_LIBRARY_FILE} ${CMAKE_CURRENT_BINARY_DIR}/PhantomLimb.app/Contents/MacOS/PhantomLimb)
+
+  add_custom_command (TARGET PhantomLimb POST_BUILD
+                    COMMAND install_name_tool -id  @executable_path/../Resources/${OPENNI_LIBRARY_FILE} ${CMAKE_CURRENT_BINARY_DIR}/PhantomLimb.app/Contents/Resources/${OPENNI_LIBRARY_FILE})
+  
+  add_custom_command (TARGET PhantomLimb POST_BUILD
+                    COMMAND install_name_tool -id  @executable_path/../Resources/${NITE_LIBRARY_FILE} ${CMAKE_CURRENT_BINARY_DIR}/PhantomLimb.app/Contents/Resources/${NITE_LIBRARY_FILE})
+
+  add_custom_command (TARGET PhantomLimb POST_BUILD
+                    COMMAND install_name_tool -change ${OPENNI_LIBRARY_FILE} @executable_path/../Resources/${OPENNI_LIBRARY_FILE} ${CMAKE_CURRENT_BINARY_DIR}/PhantomLimb.app/Contents/Resources/${NITE_LIBRARY_FILE})
+
+
+  INSTALL(CODE "
+    include(BundleUtilities)
+    fixup_bundle( ${CMAKE_CURRENT_BINARY_DIR}/PhantomLimb.app \"\"   \"${DIRS}\")
+    " COMPONENT Runtime)
+
+elseif(_SEBURO_LINUX)
+
+ 
+  # Now Copy NiTE2 and OpenNI data files
+  add_custom_command (TARGET PhantomLimb POST_BUILD
+    COMMAND cp ARGS ${NITE_LIBRARY_PATH}/NiTE.ini ${CMAKE_CURRENT_BINARY_DIR} WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR} COMMENT "Copy NiTE.ini"
+    COMMAND cp ARGS -r  ${NITE_LIBRARY_PATH}/NiTE2 ${CMAKE_CURRENT_BINARY_DIR} WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR} COMMENT "Copy NiTE2 Data"
+  )
+
+
+
+endif()
 
 
 # Oculus Rift
 
-option(USE_OCULUS "Link in the Oculus Rift SDK Librares" ON)
-  
-if (USE_OCULUS)
 
-  # OCULUS_INCLUDE_DIR - Directories containing the OCULUS include files
-  # OCULUS_LIBRARIES - Libraries needed to use OCULUS.
-
- 
-  find_path(OCULUS_INCLUDE_DIR OVR.h
-            HINTS  /opt/OculusSDK/libOVR/Include
-            PATHS "$ENV{PROGRAMFILES}/OculusSDK/LibOVR/Include" "$ENV{PROGRAMW6432}/OculusSDK/LibOVR/Include"
-            PATH_SUFFIXES OculusSDK
-  )
-
-  
-  # There are two libs, one for debug and release but for now, we just use Debug
-
-  find_library(OCULUS_LIBRARY
-               NAMES libovr
-               HINTS /usr/lib
-               PATHS "$ENV{PROGRAMFILES}/OpenNI/Lib${OPENNI_SUFFIX}" "$ENV{PROGRAMW6432}/OpenNI/Lib${OPENNI_SUFFIX}"
-               PATH_SUFFIXES lib
-  )
-
-  # We need some dependencies for Oculus it seems
-  if (_SEBURO_LINUX)
-    # this is untested on non-ubuntu linux :S
-    SEBURO_find_pkgconfig_lib(libudev)
-  endif()
+# OCULUS_INCLUDE_DIR - Directories containing the OCULUS include files
+# OCULUS_LIBRARIES - Libraries needed to use OCULUS.
 
 
-  set (OCULUS_LIBRARIES ${OCULUS_LIBRARY})
+find_path(OCULUS_INCLUDE_DIR OVR.h
+  HINTS  /opt/OculusSDK/libOVR/Include
+  PATHS "$ENV{PROGRAMFILES}/OculusSDK/LibOVR/Include" "$ENV{PROGRAMW6432}/OculusSDK/LibOVR/Include"
+  PATH_SUFFIXES OculusSDK
+)
 
-  add_definitions(-D_SEBURO_OCULUS)
-  include_directories(${OCULUS_INCLUDE_DIR})
 
-  FILE(GLOB OculusSources src/oculus/*)
+# There are two libs, one for debug and release but for now, we just use Debug
 
-endif(USE_OCULUS)
+find_library(OCULUS_LIBRARY
+  NAMES libovr
+  HINTS /usr/lib
+  PATHS "$ENV{PROGRAMFILES}/OpenNI/Lib${OPENNI_SUFFIX}" "$ENV{PROGRAMW6432}/OpenNI/Lib${OPENNI_SUFFIX}"
+  PATH_SUFFIXES lib
+)
+
+# We need some dependencies for Oculus it seems
+if (_SEBURO_LINUX)
+  # this is untested on non-ubuntu linux :S
+  SEBURO_find_pkgconfig_lib(libudev)
+endif()
+
+
+set (OCULUS_LIBRARIES ${OCULUS_LIBRARY})
+
+add_definitions(-D_SEBURO_OCULUS)
+include_directories(${OCULUS_INCLUDE_DIR})
+
+FILE(GLOB OculusSources src/oculus/*)
+
+
+# Bullet3
+# Not the best cmake here as its dependent on the build3/gmake dir and non-installed libs 
+# I compiled bullet3 with clang so its a bit different
+
+find_path(BULLET3_DIR libBulletDynamics
+  HINTS  /opt/bullet3
+  PATHS "$ENV{PROGRAMFILES}/bullet3" "$ENV{PROGRAMW6432}/bullet3"
+)
+
+if (BULLET3_DIR)
+  set(BULLET_LIBRARIES BulletDynamics BulletCollision LinearMath)
+  include_directories(${BULLET3_DIR}/src)
+
+  LINK_DIRECTORIES(${BULLET3_DIR}/build3/gmake/src/BulletDynamics)
+  LINK_DIRECTORIES(${BULLET3_DIR}/build3/gmake/src/BulletCollision)
+  LINK_DIRECTORIES(${BULLET3_DIR}/build3/gmake/src/BulletSoftBody)
+  LINK_DIRECTORIES(${BULLET3_DIR}/build3/gmake/src/LinearMath) 
+endif()
+
+
+
+
+
 
 
 
@@ -490,13 +491,14 @@ target_link_libraries(PhantomLimb
   ${SEBURO_LIBRARIES}
   ${OPENGL_LIBRARY}
   ${OPENNI_LIBRARIES}
-  ${OCULUS_LIBRARIES} 
+  ${OCULUS_LIBRARIES}
+  ${BULLET_LIBRARIES}
 )
 
 # OSX Frameworks include
 
 if (_SEBURO_OSX)
-  target_link_libraries(Seburo 
+  target_link_libraries(PhantomLimb 
     ${OSX_FRAMEWORKS}
   )
 endif()
@@ -564,10 +566,10 @@ endif()
 # Post Build
 
 if (_SEBURO_OSX)
-  add_custom_command (TARGET Seburo PRE_BUILD
+  add_custom_command (TARGET PhantomLimb PRE_BUILD
     COMMAND cp ${CMAKE_CURRENT_BINARY_DIR}/../scripts/osx_paths.sh ${CMAKE_CURRENT_BINARY_DIR}/. )
 
-  add_custom_command (TARGET Seburo POST_BUILD
+  add_custom_command (TARGET PhantomLimb POST_BUILD
     COMMAND ${CMAKE_CURRENT_BINARY_DIR}/osx_paths.sh)
 
   # Pathing for OpenNI and NITE which are included externally
@@ -577,10 +579,10 @@ if (_SEBURO_OSX)
     get_filename_component(OPENNI_LIBRARY_FILE ${OPENNI_LIBRARY} NAME) 
     get_filename_component(NITE_LIBRARY_FILE ${NITE_LIBRARY} NAME) 
 
-    add_custom_command (TARGET Seburo POST_BUILD
+    add_custom_command (TARGET PhantomLimb POST_BUILD
                       COMMAND install_name_tool -change ${OPENNI_LIBRARY_FILE} @executable_path/../Resources/${OPENNI_LIBRARY_FILE} libSeburo.dylib)
   
-    add_custom_command (TARGET Seburo POST_BUILD
+    add_custom_command (TARGET PhantomLimb POST_BUILD
                       COMMAND install_name_tool -change ${NITE_LIBRARY_FILE} @executable_path/../Resources/${NITE_LIBRARY_FILE} libSeburo.dylib)
   
 
@@ -590,74 +592,73 @@ endif()
 
 # Post Build for OpenNI
 
-if (USE_OPENNI)
 
-  get_filename_component(OPENNI_LIBRARY_FILE ${OPENNI_LIBRARY} NAME) 
-  get_filename_component(OPENNI_LIBRARY_PATH ${OPENNI_LIBRARY} PATH) 
-  get_filename_component(NITE_LIBRARY_FILE ${NITE_LIBRARY} NAME) 
-  get_filename_component(NITE_LIBRARY_PATH ${NITE_LIBRARY} PATH) 
+get_filename_component(OPENNI_LIBRARY_FILE ${OPENNI_LIBRARY} NAME) 
+get_filename_component(OPENNI_LIBRARY_PATH ${OPENNI_LIBRARY} PATH) 
+get_filename_component(NITE_LIBRARY_FILE ${NITE_LIBRARY} NAME) 
+get_filename_component(NITE_LIBRARY_PATH ${NITE_LIBRARY} PATH) 
 
-  if (_SEBURO_OSX)
-    
-    
-    # OpenNI and Nite Libraries
-    # We need to copy the libraries from the absolute path and extract the filenames
-    # then when they are copied, we must change their IDs and the app reference path
-    # We must also copy the drivers files to their correct location
-    # We must change the NITE reference to the moved OpenNI
-
-
-    add_custom_command (TARGET PhantomLimb PRE_BUILD
-                      COMMAND cp ${OPENNI_LIBRARY} ${CMAKE_CURRENT_BINARY_DIR}/PhantomLimb.app/Contents/Resources/.)
-
-    add_custom_command (TARGET PhantomLimb PRE_BUILD
-                      COMMAND cp ${NITE_LIBRARY} ${CMAKE_CURRENT_BINARY_DIR}/PhantomLimb.app/Contents/Resources/.)
+if (_SEBURO_OSX)
   
-
-    # TODO - replace the ini file to actually move the nite2 dir into Resources
-    add_custom_command (TARGET PhantomLimb POST_BUILD
-                        COMMAND cp -r ${NITE_LIBRARY_PATH}/NiTE2 ${CMAKE_CURRENT_BINARY_DIR}/PhantomLimb.app/Contents/MacOS/.)
-
-    add_custom_command (TARGET PhantomLimb POST_BUILD
-                        COMMAND cp -r ${NITE_LIBRARY_PATH}/NiTE2 ${CMAKE_CURRENT_BINARY_DIR}/PhantomLimb.app/Contents/MacOS/.)
-
-
-    add_custom_command (TARGET PhantomLimb PRE_BUILD
-                      COMMAND cp -r ${OPENNI_LIBRARY_PATH}/OpenNI2 ${CMAKE_CURRENT_BINARY_DIR}/PhantomLimb.app/Contents/Resources/.)
   
-    add_custom_command (TARGET PhantomLimb POST_BUILD
-                      COMMAND install_name_tool -change  ${OPENNI_LIBRARY_FILE} @executable_path/../Resources/${OPENNI_LIBRARY_FILE} ${CMAKE_CURRENT_BINARY_DIR}/PhantomLimb.app/Contents/MacOS/PhantomLimb)
-  
-    add_custom_command (TARGET PhantomLimb POST_BUILD
-                      COMMAND install_name_tool -change ${NITE_LIBRARY_FILE} @executable_path/../Resources/${NITE_LIBRARY_FILE} ${CMAKE_CURRENT_BINARY_DIR}/PhantomLimb.app/Contents/MacOS/PhantomLimb)
-  
-    add_custom_command (TARGET PhantomLimb POST_BUILD
-                      COMMAND install_name_tool -id  @executable_path/../Resources/${OPENNI_LIBRARY_FILE} ${CMAKE_CURRENT_BINARY_DIR}/PhantomLimb.app/Contents/Resources/${OPENNI_LIBRARY_FILE})
-    
-    add_custom_command (TARGET PhantomLimb POST_BUILD
-                      COMMAND install_name_tool -id  @executable_path/../Resources/${NITE_LIBRARY_FILE} ${CMAKE_CURRENT_BINARY_DIR}/PhantomLimb.app/Contents/Resources/${NITE_LIBRARY_FILE})
-  
-    add_custom_command (TARGET PhantomLimb POST_BUILD
-                      COMMAND install_name_tool -change ${OPENNI_LIBRARY_FILE} @executable_path/../Resources/${OPENNI_LIBRARY_FILE} ${CMAKE_CURRENT_BINARY_DIR}/PhantomLimb.app/Contents/Resources/${NITE_LIBRARY_FILE})
-  
+  # OpenNI and Nite Libraries
+  # We need to copy the libraries from the absolute path and extract the filenames
+  # then when they are copied, we must change their IDs and the app reference path
+  # We must also copy the drivers files to their correct location
+  # We must change the NITE reference to the moved OpenNI
 
-    INSTALL(CODE "
-      include(BundleUtilities)
-      fixup_bundle( ${CMAKE_CURRENT_BINARY_DIR}/PhantomLimb.app \"\"   \"${DIRS}\")
-      " COMPONENT Runtime)
 
-  elseif(_SEBURO_LINUX)
+  add_custom_command (TARGET PhantomLimb PRE_BUILD
+                    COMMAND cp ${OPENNI_LIBRARY} ${CMAKE_CURRENT_BINARY_DIR}/PhantomLimb.app/Contents/Resources/.)
+
+  add_custom_command (TARGET PhantomLimb PRE_BUILD
+                    COMMAND cp ${NITE_LIBRARY} ${CMAKE_CURRENT_BINARY_DIR}/PhantomLimb.app/Contents/Resources/.)
+
+
+  # TODO - replace the ini file to actually move the nite2 dir into Resources
+  add_custom_command (TARGET PhantomLimb POST_BUILD
+                      COMMAND cp -r ${NITE_LIBRARY_PATH}/NiTE2 ${CMAKE_CURRENT_BINARY_DIR}/PhantomLimb.app/Contents/MacOS/.)
+
+  add_custom_command (TARGET PhantomLimb POST_BUILD
+                      COMMAND cp -r ${NITE_LIBRARY_PATH}/NiTE2 ${CMAKE_CURRENT_BINARY_DIR}/PhantomLimb.app/Contents/MacOS/.)
+
+
+  add_custom_command (TARGET PhantomLimb PRE_BUILD
+                    COMMAND cp -r ${OPENNI_LIBRARY_PATH}/OpenNI2 ${CMAKE_CURRENT_BINARY_DIR}/PhantomLimb.app/Contents/Resources/.)
+
+  add_custom_command (TARGET PhantomLimb POST_BUILD
+                    COMMAND install_name_tool -change  ${OPENNI_LIBRARY_FILE} @executable_path/../Resources/${OPENNI_LIBRARY_FILE} ${CMAKE_CURRENT_BINARY_DIR}/PhantomLimb.app/Contents/MacOS/PhantomLimb)
+
+  add_custom_command (TARGET PhantomLimb POST_BUILD
+                    COMMAND install_name_tool -change ${NITE_LIBRARY_FILE} @executable_path/../Resources/${NITE_LIBRARY_FILE} ${CMAKE_CURRENT_BINARY_DIR}/PhantomLimb.app/Contents/MacOS/PhantomLimb)
+
+  add_custom_command (TARGET PhantomLimb POST_BUILD
+                    COMMAND install_name_tool -id  @executable_path/../Resources/${OPENNI_LIBRARY_FILE} ${CMAKE_CURRENT_BINARY_DIR}/PhantomLimb.app/Contents/Resources/${OPENNI_LIBRARY_FILE})
+  
+  add_custom_command (TARGET PhantomLimb POST_BUILD
+                    COMMAND install_name_tool -id  @executable_path/../Resources/${NITE_LIBRARY_FILE} ${CMAKE_CURRENT_BINARY_DIR}/PhantomLimb.app/Contents/Resources/${NITE_LIBRARY_FILE})
+
+  add_custom_command (TARGET PhantomLimb POST_BUILD
+                    COMMAND install_name_tool -change ${OPENNI_LIBRARY_FILE} @executable_path/../Resources/${OPENNI_LIBRARY_FILE} ${CMAKE_CURRENT_BINARY_DIR}/PhantomLimb.app/Contents/Resources/${NITE_LIBRARY_FILE})
+
+
+  INSTALL(CODE "
+    include(BundleUtilities)
+    fixup_bundle( ${CMAKE_CURRENT_BINARY_DIR}/PhantomLimb.app \"\"   \"${DIRS}\")
+    " COMPONENT Runtime)
+
+elseif(_SEBURO_LINUX)
+
  
-   
-    # Now Copy NiTE2 and OpenNI data files
-    add_custom_command (TARGET PhantomLimb POST_BUILD
-      COMMAND cp ARGS ${NITE_LIBRARY_PATH}/NiTE.ini ${CMAKE_CURRENT_BINARY_DIR} WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR} COMMENT "Copy NiTE.ini"
-      COMMAND cp ARGS -r  ${NITE_LIBRARY_PATH}/NiTE2 ${CMAKE_CURRENT_BINARY_DIR} WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR} COMMENT "Copy NiTE2 Data"
-    )
+  # Now Copy NiTE2 and OpenNI data files
+  add_custom_command (TARGET PhantomLimb POST_BUILD
+    COMMAND cp ARGS ${NITE_LIBRARY_PATH}/NiTE.ini ${CMAKE_CURRENT_BINARY_DIR} WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR} COMMENT "Copy NiTE.ini"
+    COMMAND cp ARGS -r  ${NITE_LIBRARY_PATH}/NiTE2 ${CMAKE_CURRENT_BINARY_DIR} WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR} COMMENT "Copy NiTE2 Data"
+  )
 
 
-  
-  endif()
+
+endif()
 
 
-endif(USE_OPENNI)
+

@@ -1,6 +1,6 @@
 /**
-* @brief GLFW Window based solution
-* @file app.hpp
+* @brief Phantomlimb Main class
+* @file app.cpp
 * @author Benjamin Blundell <oni@section9.co.uk>
 * @date 29/10/2013
 *
@@ -38,7 +38,6 @@ using namespace s9::oni;
   openni_ = OpenNIBase(openni::ANY_DEVICE);
   openni_skeleton_tracker_ = OpenNISkeleton(openni_);
 
-
   // Virtual Cameras
   // Calibrated for the Sintel Model
   camera_= Camera( glm::vec3(0.0f,1.51f,-0.02),  glm::vec3(0.0,1.51f,-4.0f));
@@ -66,15 +65,35 @@ using namespace s9::oni;
 
   node_model_.add(md5_).add(shader_skinning_);
 
-  glm::mat4 mat = glm::rotate(glm::mat4(), 180.0f, glm::vec3(0.0f, 1.0f, 0.0f));
-  mat = glm::rotate(mat, -90.0f, glm::vec3(1.0f, 0.0f, 0.0f));
+  model_base_mat_ = glm::rotate(glm::mat4(), 180.0f, glm::vec3(0.0f, 1.0f, 0.0f));
+  model_base_mat_ = glm::rotate(model_base_mat_, -90.0f, glm::vec3(1.0f, 0.0f, 0.0f));
   //mat = glm::scale(mat, glm::vec3(0.1f,0.1f,0.1f));
   
-  node_model_.set_matrix(mat);
+  node_model_.set_matrix(model_base_mat_);
 
   quad_ = Quad(320,240);
   node_depth_.add(quad_).add(shader_quad_).add(camera_ortho_);
   node_colour_.add(quad_).add(shader_quad_).add(camera_ortho_);
+
+  hand_left_colour_ = glm::vec4(1.0f,0.0f,0.0f,1.0f);
+  hand_right_colour_ = glm::vec4(0.0f,1.0f,0.0f,1.0f);
+
+  // Hands - calibrated in model co-ordinates for Sintel
+  Sphere s(0.1f, 20);
+
+  hand_pos_left_ = glm::vec4(0.63f, 0.03f,1.32f, 1.0f);
+  hand_pos_right_ = glm::vec4(-0.63f, 0.03f,1.32f, 1.0f);
+
+  node_hands_.add(shader_colour_).add(node_left_hand_).add(node_right_hand_);
+
+  node_left_hand_.add(s).add(gl::ShaderClause<glm::vec4,1>("uColour", hand_left_colour_));
+  node_right_hand_.add(s).add(gl::ShaderClause<glm::vec4,1>("uColour", hand_right_colour_));
+
+  node_model_.add(node_hands_);
+
+  // Physics Ball
+  ball_colour_ = glm::vec4(1.0f,0.0f,1.0f,1.0f);
+  node_ball_.add(shader_colour_).add(s).add(gl::ShaderClause<glm::vec4,1>("uColour", ball_colour_));
 
   // Skeleton Shape
 
@@ -85,6 +104,11 @@ using namespace s9::oni;
 
   node_left_.add(camera_left_).add(node_model_);
   node_right_.add(camera_right_).add(node_model_);
+
+
+  // Physics
+
+  physics_ = PhantomPhysics(-10.0f, 0.1f);
 
   CXGLERROR
 
@@ -103,6 +127,10 @@ void PhantomLimb::Update(double_t dt) {
 
   // Update Oculus - take the difference
   oculus_.update(dt);
+
+
+  // Update Physics
+  physics_.Update(dt);
 
   // Now copy over the positions of the captured skeleton to the MD5
 
@@ -155,19 +183,48 @@ void PhantomLimb::Update(double_t dt) {
       ///\todo we should always get a consistent postion for bones
  
       Bone * luparm = md5_.skeleton().bone("upper_arm.L");
-      luparm->set_rotation_relative( rys * rzs *  user.skeleton().bone("Left Shoulder")->rotation()  * rzsi * rysi );
+      if (luparm != nullptr)
+        luparm->set_rotation_relative( rys * rzs *  user.skeleton().bone("Left Shoulder")->rotation()  * rzsi * rysi );
 
       Bone * lloarm = md5_.skeleton().bone("lower_arm.L");
-      lloarm->set_rotation_relative(  rys * rzs * user.skeleton().bone("Left Elbow")->rotation() * rzsi * rysi);
+      if (lloarm != nullptr)
+        lloarm->set_rotation_relative(  rys * rzs * user.skeleton().bone("Left Elbow")->rotation() * rzsi * rysi);
 
       Bone * ruparm = md5_.skeleton().bone("upper_arm.R");
-      ruparm->set_rotation_relative( nrys * nrzs *  user.skeleton().bone("Right Shoulder")->rotation() * nrzsi * nrysi  );
+      if (ruparm != nullptr)
+        ruparm->set_rotation_relative( nrys * nrzs *  user.skeleton().bone("Right Shoulder")->rotation() * nrzsi * nrysi  );
 
       Bone * rloarm = md5_.skeleton().bone("lower_arm.R");
-      rloarm->set_rotation_relative(  nrys * nrzs  * user.skeleton().bone("Right Elbow")->rotation() * nrzsi * nrysi );
+      if (rloarm != nullptr)
+        rloarm->set_rotation_relative(  nrys * nrzs  * user.skeleton().bone("Right Elbow")->rotation() * nrzsi * nrysi );
 
     }
   }
+
+
+  // set the hit targets for physics as spheres where the hands are
+  // This is done in model space so the actual positions, we need to move to world space
+
+  Bone * lloarm = md5_.skeleton().bone("lower_arm.L");
+  if (lloarm != nullptr){
+    glm::vec4 lp = lloarm->skinned_matrix() * hand_pos_left_;
+    glm::vec3 tp = glm::vec3(lp.x, lp.y, lp.z);
+    glm::mat4 trans = glm::translate(glm::mat4(1.0f), tp);
+    node_left_hand_.set_matrix(trans);
+    hand_pos_left_final_ = tp;
+  }
+
+
+  Bone * rloarm = md5_.skeleton().bone("lower_arm.R");
+  if (rloarm != nullptr){
+    glm::vec4 lp = rloarm->skinned_matrix() * hand_pos_right_;
+    glm::vec3 tp = glm::vec3(lp.x, lp.y, lp.z);
+    glm::mat4 trans = glm::translate(glm::mat4(1.0f), tp);
+    node_right_hand_.set_matrix(trans);
+    hand_pos_right_final_ = tp;
+  }
+
+
 }
 
 
@@ -220,10 +277,29 @@ void PhantomLimb::Update(double_t dt) {
     camera_left_.set_view_matrix( camera_.view_matrix() * oculus_.left_inter() );
     camera_right_.set_view_matrix(  camera_.view_matrix() * oculus_.right_inter() );
 
+    // Draw Balls left and right
+
+    node_ball_.add(camera_left_);
+    for (glm::mat4 mat : physics_.ball_orients()){
+      node_ball_.set_matrix(mat);
+      node_ball_.draw();
+    }
+    node_ball_.remove(camera_left_);
+
+
+    node_ball_.add(camera_right_);
+    for (glm::mat4 mat : physics_.ball_orients()){
+      node_ball_.set_matrix(mat);
+      node_ball_.draw();
+    }
+    node_ball_.remove(camera_right_);
+
     // Draw Model
 
     node_left_.draw();
     node_right_.draw();
+
+    // Draw the hand collision units
 
     // Draw textures from the camera
     /*
@@ -274,6 +350,11 @@ void PhantomLimb::Update(double_t dt) {
   }
 }
 
+/// Fire a ball into the scene
+void PhantomLimb::FireBall() {
+  physics_.AddBall(0.1f, glm::vec3(0.0f, 20.0f, -1.0f), glm::vec3(0,0,0));
+}
+
 
 PhantomLimb::~PhantomLimb() {   
 
@@ -305,27 +386,41 @@ void PhantomLimb::ProcessEvent(KeyboardEvent e, GLFWwindow* window){}
 #ifdef _SEBURO_LINUX
 
 
-UXWindow::UXWindow(PhantomLimb &app) : app_(app), button_ ("Hello World")  {   // creates a new button with label "Hello World".
+UXWindow::UXWindow(PhantomLimb &app) : app_(app)  {   // creates a new button with label "Hello World".
   // Sets the border width of the window.
   set_border_width(10);
 
   // When the button receives the "clicked" signal, it will call the
   // on_button_clicked() method defined below.
-  button_.signal_clicked().connect(sigc::mem_fun(*this, &UXWindow::on_button_clicked));
+  button_fire_ = new Gtk::Button("Fire Ball");
+  button_fire_->signal_clicked().connect(sigc::mem_fun(*this, &UXWindow::on_button_fire_clicked));
+
+  button_reset_ = new Gtk::Button("Reset Game");
+  button_reset_->signal_clicked().connect(sigc::mem_fun(*this, &UXWindow::on_button_reset_clicked));
 
   // This packs the button into the Window (a container).
-  add(button_);
+  grid_.attach(*button_fire_,0,0,1,1);
+  grid_.attach(*button_reset_,0,1,1,1);
 
+  add(grid_);
   show_all();
 
 }
 
 UXWindow::~UXWindow() {
   // Need to signal that we are done here
+  delete button_fire_;
+  delete button_reset_;
 }
 
-void UXWindow::on_button_clicked() {
-  cout << "Hello World" << endl;
+void UXWindow::on_button_fire_clicked() {
+  cout << "Firing Ball" << endl;
+  app_.FireBall();
+}
+
+void UXWindow::on_button_reset_clicked() {
+  cout << "Reset Physics" << endl;
+  app_.ResetPhysics();
 }
 
 #endif
@@ -345,9 +440,12 @@ int main (int argc, const char * argv[]) {
   WithUXApp a(b,argc,argv);
 #endif
 
+#ifdef _SEBURO_LINUX
   // Change HDMI-0 to whatever is listed in the output for the GLFW Monitor Screens
-  a.CreateWindowFullScreen("Oculus", 0, 0, "HDMI-0");
+  //a.CreateWindowFullScreen("Oculus", 0, 0, "HDMI-0");
   
+  a.CreateWindow("Oculus", 1280, 800);
+
   UXWindow ux(b);
 
   a.Run(ux);
@@ -356,5 +454,7 @@ int main (int argc, const char * argv[]) {
   a.Shutdown();
 
   return EXIT_SUCCESS;
+
+#endif
 
 }
