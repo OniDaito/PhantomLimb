@@ -34,6 +34,12 @@ namespace s9 {
 
 #ifdef _SEBURO_LINUX
 
+	typedef enum {
+		BOTH_ARMS,
+		LEFT_ARM,
+		RIGHT_ARM
+	}ArmState;
+
 	class PhantomLimb;
 
 	/*
@@ -43,13 +49,16 @@ namespace s9 {
 	class UXWindow : public Gtk::Window {
 
 	public:
-	  UXWindow(PhantomLimb &app);
+	  UXWindow(gl::WithUXApp &gtk_app, PhantomLimb &app);
 	  virtual ~UXWindow();
 
 	protected:
 	  //Signal handlers:
 	  void on_button_fire_clicked();
 	  void on_button_reset_clicked();
+	  void on_button_auto_game_clicked();
+	  void on_button_quit_clicked();
+	  bool on_window_closed(GdkEventAny* event);
 
 	  // Layout
 
@@ -57,9 +66,12 @@ namespace s9 {
 
 	  // Buttons
 	  Gtk::Button* button_fire_;
+	  Gtk::Button* button_auto_game_;
 	  Gtk::Button* button_reset_;
+	  Gtk::Button* button_quit_;
 
 	  PhantomLimb& app_;
+	  gl::WithUXApp& gtk_app_;
 
 	};
 
@@ -84,7 +96,10 @@ namespace s9 {
 		// UX Interface functions
 		void FireBall();
 		void ResetPhysics() { physics_.Reset(); }
+		void PlayGame(bool b) { playing_game_ = b; last_shot_ = 0; }
 		
+		bool playing_game() {return playing_game_; }
+
 	protected:
 
 		// Geometry
@@ -135,6 +150,7 @@ namespace s9 {
 		// Balls for Physics
 		Node 	node_ball_;
 		glm::vec4 ball_colour_;
+		float_t ball_radius_;
 
 		// OpenNI
 		s9::oni::OpenNIBase openni_;
@@ -161,6 +177,12 @@ namespace s9 {
 
 		PhantomPhysics physics_;
 
+		// Game
+
+		bool playing_game_;
+		double_t last_shot_;
+
+		ArmState arm_state_;
 		
 	};
 }

@@ -9,6 +9,7 @@
 #include "app.hpp"
 #include <signal.h>
 
+
 using namespace std;
 using namespace s9;
 using namespace s9::gl;
@@ -19,6 +20,8 @@ using namespace s9::oni;
  */
 
  void PhantomLimb::Init(){
+
+  std::srand(std::time(0)); 
 
   // File Load
 
@@ -40,7 +43,7 @@ using namespace s9::oni;
 
   // Virtual Cameras
   // Calibrated for the Sintel Model
-  camera_= Camera( glm::vec3(0.0f,1.51f,-0.02),  glm::vec3(0.0,1.51f,-4.0f));
+  camera_= Camera( glm::vec3(0.0f,1.59f,-0.04),  glm::vec3(0.0,1.59f,-4.0f));
   camera_.set_update_on_node_draw(false);
   camera_.set_near(0.01f);
   camera_.resize(1280,800);
@@ -58,7 +61,7 @@ using namespace s9::oni;
 
   // MD5 Model Load
 
-  md5_ = MD5Model( s9::File("./data/sintel_lite/sintel_lite.md5mesh") ); 
+  md5_ = MD5Model( s9::File("./data/tracksuit/tracksuit.md5mesh") ); 
   //md5_.set_geometry_cast(WIREFRAME);
 
   // Nodes
@@ -78,22 +81,24 @@ using namespace s9::oni;
   hand_left_colour_ = glm::vec4(1.0f,0.0f,0.0f,1.0f);
   hand_right_colour_ = glm::vec4(0.0f,1.0f,0.0f,1.0f);
 
-  // Hands - calibrated in model co-ordinates for Sintel
+  // Hands - calibrated in model co-ordinates for Tracksuit
   Sphere s(0.1f, 20);
 
-  hand_pos_left_ = glm::vec4(0.63f, 0.03f,1.32f, 1.0f);
-  hand_pos_right_ = glm::vec4(-0.63f, 0.03f,1.32f, 1.0f);
+  hand_pos_left_ = glm::vec4(0.55f, -0.07f,1.06f, 1.0f);
+  hand_pos_right_ = glm::vec4(-0.55f, -0.07f,1.06f, 1.0f);
 
   node_hands_.add(shader_colour_).add(node_left_hand_).add(node_right_hand_);
 
   node_left_hand_.add(s).add(gl::ShaderClause<glm::vec4,1>("uColour", hand_left_colour_));
   node_right_hand_.add(s).add(gl::ShaderClause<glm::vec4,1>("uColour", hand_right_colour_));
 
-  node_model_.add(node_hands_);
+  //node_model_.add(node_hands_);
 
   // Physics Ball
+  ball_radius_ = 0.25f;
+  Sphere ball(ball_radius_, 30);
   ball_colour_ = glm::vec4(1.0f,0.0f,1.0f,1.0f);
-  node_ball_.add(shader_colour_).add(s).add(gl::ShaderClause<glm::vec4,1>("uColour", ball_colour_));
+  node_ball_.add(shader_colour_).add(ball).add(gl::ShaderClause<glm::vec4,1>("uColour", ball_colour_));
 
   // Skeleton Shape
 
@@ -102,13 +107,17 @@ using namespace s9::oni;
   //skeleton_shape_.add(shader_colour_).add(camera_);
   //node_model_.add(skeleton_shape_);
 
-  node_left_.add(camera_left_).add(node_model_);
-  node_right_.add(camera_right_).add(node_model_);
+  node_left_.add(camera_left_).add(node_model_).add(node_hands_);
+  node_right_.add(camera_right_).add(node_model_).add(node_hands_);
 
+
+  // Game stuff
+
+  arm_state_ = RIGHT_ARM;
 
   // Physics
 
-  physics_ = PhantomPhysics(-10.0f, 0.1f);
+  physics_ = PhantomPhysics(-3.0f, 0.2f);
 
   CXGLERROR
 
@@ -179,16 +188,63 @@ void PhantomLimb::Update(double_t dt) {
       rloarm->set_rotation_relative( rx * ry * user.skeleton().bone("Right Elbow")->rotation() * ryi * rxi );
       */
 
-      // Sintel's bones have different alignments in the arms due to some blender issues it seems
+      // Sintel's & tracksuits bones have different alignments in the arms due to some blender issues it seems
       ///\todo we should always get a consistent postion for bones
  
       Bone * luparm = md5_.skeleton().bone("upper_arm.L");
-      if (luparm != nullptr)
-        luparm->set_rotation_relative( rys * rzs *  user.skeleton().bone("Left Shoulder")->rotation()  * rzsi * rysi );
+      if (luparm != nullptr) {
+        
+        glm::quat final_rotation;
+
+        // Deal with the mirroring of arms
+        switch (arm_state_) {
+          case BOTH_ARMS:
+          case LEFT_ARM:
+            final_rotation = user.skeleton().bone("Left Shoulder")->rotation();
+          break;
+
+          case RIGHT_ARM:
+            // Convert back to Euler, reverse then rebuild - not the best way I suspect :S
+            glm::quat tq = user.skeleton().bone("Right Shoulder")->rotation();
+
+            float_t angle = glm::angle(tq);
+            glm::vec3 axis = glm::axis(tq);
+            final_rotation = glm::angleAxis(-angle, -axis.x,axis.y,axis.z);
+
+          break;
+
+        }
+
+        luparm->set_rotation_relative( rys * rzs * final_rotation   * rzsi * rysi );
+
+      }
+
 
       Bone * lloarm = md5_.skeleton().bone("lower_arm.L");
-      if (lloarm != nullptr)
-        lloarm->set_rotation_relative(  rys * rzs * user.skeleton().bone("Left Elbow")->rotation() * rzsi * rysi);
+      if (lloarm != nullptr) {
+        glm::quat final_rotation;
+
+        switch (arm_state_) {
+          case BOTH_ARMS:
+          case LEFT_ARM:
+            final_rotation = user.skeleton().bone("Left Elbow")->rotation();
+          break;
+
+          case RIGHT_ARM:
+            // Convert back to Euler, reverse then rebuild - not the best way I suspect :S
+            glm::quat tq =user.skeleton().bone("Right Elbow")->rotation();
+            float_t angle = glm::angle(tq);
+            glm::vec3 axis = glm::axis(tq);
+            
+            final_rotation = glm::angleAxis(-angle, -axis.x,axis.y,axis.z);
+        
+          break;
+
+        
+        }
+        lloarm->set_rotation_relative(  rys * rzs * final_rotation * rzsi * rysi);
+      }
+        
 
       Bone * ruparm = md5_.skeleton().bone("upper_arm.R");
       if (ruparm != nullptr)
@@ -205,24 +261,43 @@ void PhantomLimb::Update(double_t dt) {
   // set the hit targets for physics as spheres where the hands are
   // This is done in model space so the actual positions, we need to move to world space
 
+  // Dependent on Arm state
+
   Bone * lloarm = md5_.skeleton().bone("lower_arm.L");
   if (lloarm != nullptr){
-    glm::vec4 lp = lloarm->skinned_matrix() * hand_pos_left_;
-    glm::vec3 tp = glm::vec3(lp.x, lp.y, lp.z);
-    glm::mat4 trans = glm::translate(glm::mat4(1.0f), tp);
+
+    glm::vec4 lp = glm::inverse(model_base_mat_) * lloarm->skinned_matrix() * hand_pos_left_;
+
+    hand_pos_left_final_ = glm::vec3(lp.x,lp.y,lp.z);
+    glm::mat4 trans = glm::translate(glm::mat4(1.0f), hand_pos_left_final_);
     node_left_hand_.set_matrix(trans);
-    hand_pos_left_final_ = tp;
+
+    physics_.MoveLeftHand(hand_pos_left_final_);
   }
 
 
   Bone * rloarm = md5_.skeleton().bone("lower_arm.R");
   if (rloarm != nullptr){
-    glm::vec4 lp = rloarm->skinned_matrix() * hand_pos_right_;
-    glm::vec3 tp = glm::vec3(lp.x, lp.y, lp.z);
-    glm::mat4 trans = glm::translate(glm::mat4(1.0f), tp);
+    glm::vec4 lp =  glm::inverse(model_base_mat_) * rloarm->skinned_matrix() * hand_pos_right_;
+
+    hand_pos_right_final_ = glm::vec3(lp.x,lp.y,lp.z);
+
+    glm::mat4 trans = glm::translate(glm::mat4(1.0f), hand_pos_right_final_);
     node_right_hand_.set_matrix(trans);
-    hand_pos_right_final_ = tp;
+
+    physics_.MoveRightHand(hand_pos_right_final_);
   }
+
+
+  // Update game state
+  if (playing_game_){
+    last_shot_ += dt / 1000;
+    if (last_shot_ > 5.0) {
+      last_shot_ = 0;
+      FireBall();
+    }
+  }
+
 
 
 }
@@ -352,7 +427,11 @@ void PhantomLimb::Update(double_t dt) {
 
 /// Fire a ball into the scene
 void PhantomLimb::FireBall() {
-  physics_.AddBall(0.1f, glm::vec3(0.0f, 20.0f, -1.0f), glm::vec3(0,0,0));
+
+  float_t r0 = static_cast<float_t>(std::rand()) /  RAND_MAX;
+  float_t r1 = -1.0f +  (r0 * 2.0f);
+
+  physics_.AddBall(ball_radius_, glm::vec3( r1 , 1.0f + (r0 * 0.5f), -4.0f), glm::vec3(0.0f,2.0f * r0, 4.0f * r0 + 2.0f));
 }
 
 
@@ -386,7 +465,15 @@ void PhantomLimb::ProcessEvent(KeyboardEvent e, GLFWwindow* window){}
 #ifdef _SEBURO_LINUX
 
 
-UXWindow::UXWindow(PhantomLimb &app) : app_(app)  {   // creates a new button with label "Hello World".
+///\todo passing in the gtk_app is a bit naughty I think
+UXWindow::UXWindow(gl::WithUXApp &gtk_app, PhantomLimb &app) : gtk_app_(gtk_app), app_(app)  {  
+
+  //Glib::RefPtr< Screen > screen =  Gdk::Screen::get_default();
+  //Glib::RefPtr<Display> display = screen->get_display();
+
+  maximize();
+  fullscreen();
+
   // Sets the border width of the window.
   set_border_width(10);
 
@@ -394,13 +481,35 @@ UXWindow::UXWindow(PhantomLimb &app) : app_(app)  {   // creates a new button wi
   // on_button_clicked() method defined below.
   button_fire_ = new Gtk::Button("Fire Ball");
   button_fire_->signal_clicked().connect(sigc::mem_fun(*this, &UXWindow::on_button_fire_clicked));
+  button_fire_->set_hexpand(true);
+  button_fire_->set_vexpand(true);
+
 
   button_reset_ = new Gtk::Button("Reset Game");
   button_reset_->signal_clicked().connect(sigc::mem_fun(*this, &UXWindow::on_button_reset_clicked));
+  button_reset_->set_hexpand(true);
+  button_reset_->set_vexpand(true);
+
+  button_auto_game_ = new Gtk::Button("Auto Game Start / Stop");
+  button_auto_game_->signal_clicked().connect(sigc::mem_fun(*this, &UXWindow::on_button_auto_game_clicked));
+  button_auto_game_->set_hexpand(true);
+  button_auto_game_->set_vexpand(true);
+
+  button_quit_ = new Gtk::Button("Quit");
+  button_quit_->signal_clicked().connect(sigc::mem_fun(*this, &UXWindow::on_button_quit_clicked));
+  button_quit_->set_hexpand(true);
+  button_quit_->set_vexpand(true);
+
+  signal_delete_event().connect(sigc::mem_fun(*this, &UXWindow::on_window_closed));
 
   // This packs the button into the Window (a container).
   grid_.attach(*button_fire_,0,0,1,1);
   grid_.attach(*button_reset_,0,1,1,1);
+  grid_.attach(*button_auto_game_,0,2,1,1);
+  grid_.attach(*button_quit_,0,3,1,1);
+
+  grid_.set_hexpand();
+  grid_.set_vexpand();
 
   add(grid_);
   show_all();
@@ -423,6 +532,24 @@ void UXWindow::on_button_reset_clicked() {
   app_.ResetPhysics();
 }
 
+
+void UXWindow::on_button_auto_game_clicked() {
+  cout << "Auto Game Clicked" << endl;
+  app_.PlayGame(!app_.playing_game());
+}
+
+void UXWindow::on_button_quit_clicked() {
+  cout << "Quitting PhantomLimb" << endl;
+  gtk_app_.Shutdown();
+}
+
+bool UXWindow::on_window_closed(GdkEventAny* event) {
+  cout << "Quitting PhantomLimb" << endl;
+  gtk_app_.Shutdown();
+  return false;
+}
+
+
 #endif
 
 
@@ -442,16 +569,16 @@ int main (int argc, const char * argv[]) {
 
 #ifdef _SEBURO_LINUX
   // Change HDMI-0 to whatever is listed in the output for the GLFW Monitor Screens
-  //a.CreateWindowFullScreen("Oculus", 0, 0, "HDMI-0");
+  a.CreateWindowFullScreen("Oculus", 0, 0, "HDMI-0");
   
-  a.CreateWindow("Oculus", 1280, 800);
+  //a.CreateWindow("Oculus", 1280, 800);
 
-  UXWindow ux(b);
+  UXWindow ux(a,b);
 
   a.Run(ux);
 
   // Call shutdown once the GTK Run loop has quit. This makes GLFW quit cleanly
-  a.Shutdown();
+  //a.Shutdown();
 
   return EXIT_SUCCESS;
 

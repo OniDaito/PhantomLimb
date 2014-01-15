@@ -46,7 +46,7 @@ void PhantomPhysics::AddBall(float_t radius, glm::vec3 pos, glm::vec3 velocity){
   //rigidbody is dynamic if and only if mass is non zero, otherwise static
   bool isDynamic = (mass != 0.f);
 
-  btVector3 localInertia(velocity.x,velocity.y,velocity.z);
+  btVector3 localInertia(velocity.x, velocity.y, velocity.z);
   if (isDynamic)
     colShape->calculateLocalInertia(mass,localInertia);
 
@@ -57,6 +57,8 @@ void PhantomPhysics::AddBall(float_t radius, glm::vec3 pos, glm::vec3 velocity){
   btDefaultMotionState* myMotionState = new btDefaultMotionState(startTransform);
   btRigidBody::btRigidBodyConstructionInfo rbInfo(mass,myMotionState,colShape,localInertia);
   btRigidBody* body = new btRigidBody(rbInfo);
+
+  body->setLinearVelocity( btVector3(velocity.x, velocity.y, velocity.z) );
 
   obj_->dynamics_world->addRigidBody(body);
 
@@ -85,10 +87,29 @@ void PhantomPhysics::Update(double dt){
 }
 
 void PhantomPhysics::MoveLeftHand(glm::vec3 pos) {
+  CXSHARED
+  //obj_->left_hand->translate( btVector3( pos.x, pos.y, pos.z ));
+  btTransform newTrans;
+
+  obj_->left_hand->getMotionState()->getWorldTransform(newTrans);
+  newTrans.setOrigin( btVector3( pos.x, pos.y, pos.z ));
+  obj_->left_hand->setActivationState(4);
+  obj_->left_hand->getMotionState()->setWorldTransform(newTrans);
 
 }
 
 void PhantomPhysics::MoveRightHand(glm::vec3 pos){
+  CXSHARED
+  //obj_->right_hand->translate( btVector3( pos.x, pos.y, pos.z ));
+  btTransform newTrans;
+  
+  obj_->right_hand->getMotionState()->getWorldTransform(newTrans);
+  newTrans.setOrigin( btVector3( pos.x, pos.y, pos.z ));
+  obj_->right_hand->setActivationState(4);
+  obj_->right_hand->getMotionState()->setWorldTransform(newTrans);
+
+ // ms.setWorldTransform(trans)
+ // body.setMotionState(ms)
 
 }
 
@@ -174,11 +195,19 @@ void PhantomPhysics::SharedObject::InitPhysics() {
     left_hand = new btRigidBody(rbInfoLeft);
     dynamics_world->addRigidBody(left_hand);
 
+    left_hand->setCollisionFlags( left_hand->getCollisionFlags() | btCollisionObject::CF_KINEMATIC_OBJECT);
+    left_hand->setActivationState(DISABLE_DEACTIVATION);
+    left_hand->activate(true);
+
     btDefaultMotionState* myMotionStateRight = new btDefaultMotionState(startTransform);
     btRigidBody::btRigidBodyConstructionInfo rbInfoRight(mass, myMotionStateRight, colShape, localInertia);
     
     right_hand = new btRigidBody(rbInfoRight);
     dynamics_world->addRigidBody(right_hand);
+
+    right_hand->setCollisionFlags( right_hand->getCollisionFlags() | btCollisionObject::CF_KINEMATIC_OBJECT);
+    right_hand->setActivationState(DISABLE_DEACTIVATION);
+    right_hand->activate(true); 
   }
 
   running_ = true;
@@ -192,7 +221,6 @@ void PhantomPhysics::SharedObject::ExitPhysics() {
   update_mutex.lock();
   ball_orients.clear();
   
-
   for (size_t i =0 ; i < balls.size(); ++i ){
     dynamics_world->removeRigidBody(balls[i]);
     delete balls[i]->getMotionState();
