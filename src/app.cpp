@@ -21,6 +21,9 @@ using namespace s9::oni;
 
  void PhantomLimb::Init(){
 
+  // Load settings
+  file_settings_.LoadFile(s9::File("./data/settings.xml"));
+
   std::srand(std::time(0)); 
 
   // File Load
@@ -46,7 +49,7 @@ using namespace s9::oni;
   camera_= Camera( glm::vec3(0.0f,1.59f,-0.04),  glm::vec3(0.0,1.59f,-4.0f));
   camera_.set_update_on_node_draw(false);
   camera_.set_near(0.01f);
-  camera_.resize(1280,800);
+  camera_.Resize(1280,800);
 
   camera_left_ = Camera(glm::vec3(0.0f,0.0f,0.0f));
   camera_right_ = Camera(glm::vec3(0.0f,0.0f,0.0f));
@@ -66,7 +69,7 @@ using namespace s9::oni;
 
   // Nodes
 
-  node_model_.add(md5_).add(shader_skinning_);
+  node_model_.Add(md5_).Add(shader_skinning_);
 
   model_base_mat_ = glm::rotate(glm::mat4(), 180.0f, glm::vec3(0.0f, 1.0f, 0.0f));
   model_base_mat_ = glm::rotate(model_base_mat_, -90.0f, glm::vec3(1.0f, 0.0f, 0.0f));
@@ -75,8 +78,8 @@ using namespace s9::oni;
   node_model_.set_matrix(model_base_mat_);
 
   quad_ = Quad(320,240);
-  node_depth_.add(quad_).add(shader_quad_).add(camera_ortho_);
-  node_colour_.add(quad_).add(shader_quad_).add(camera_ortho_);
+  node_depth_.Add(quad_).Add(shader_quad_).Add(camera_ortho_);
+  node_colour_.Add(quad_).Add(shader_quad_).Add(camera_ortho_);
 
   hand_left_colour_ = glm::vec4(1.0f,0.0f,0.0f,1.0f);
   hand_right_colour_ = glm::vec4(0.0f,1.0f,0.0f,1.0f);
@@ -87,33 +90,33 @@ using namespace s9::oni;
   hand_pos_left_ = glm::vec4(0.55f, -0.07f,1.06f, 1.0f);
   hand_pos_right_ = glm::vec4(-0.55f, -0.07f,1.06f, 1.0f);
 
-  node_hands_.add(shader_colour_).add(node_left_hand_).add(node_right_hand_);
+  node_hands_.Add(shader_colour_).Add(node_left_hand_).Add(node_right_hand_);
 
-  node_left_hand_.add(s).add(gl::ShaderClause<glm::vec4,1>("uColour", hand_left_colour_));
-  node_right_hand_.add(s).add(gl::ShaderClause<glm::vec4,1>("uColour", hand_right_colour_));
+  node_left_hand_.Add(s).Add(gl::ShaderClause<glm::vec4,1>("uColour", hand_left_colour_));
+  node_right_hand_.Add(s).Add(gl::ShaderClause<glm::vec4,1>("uColour", hand_right_colour_));
 
-  //node_model_.add(node_hands_);
+  //node_model_.Add(node_hands_);
 
   // Physics Ball
   ball_radius_ = 0.25f;
   Sphere ball(ball_radius_, 30);
   ball_colour_ = glm::vec4(1.0f,0.0f,1.0f,1.0f);
-  node_ball_.add(shader_colour_).add(ball).add(gl::ShaderClause<glm::vec4,1>("uColour", ball_colour_));
+  node_ball_.Add(shader_colour_).Add(ball).Add(gl::ShaderClause<glm::vec4,1>("uColour", ball_colour_));
 
   // Skeleton Shape
 
   skeleton_shape_ = SkeletonShape(md5_.skeleton());
   //skeleton_shape_.set_geometry_cast(WIREFRAME);
-  //skeleton_shape_.add(shader_colour_).add(camera_);
-  //node_model_.add(skeleton_shape_);
+  //skeleton_shape_.Add(shader_colour_).Add(camera_);
+  //node_model_.Add(skeleton_shape_);
 
-  node_left_.add(camera_left_).add(node_model_).add(node_hands_);
-  node_right_.add(camera_right_).add(node_model_).add(node_hands_);
+  node_left_.Add(camera_left_).Add(node_model_).Add(node_hands_);
+  node_right_.Add(camera_right_).Add(node_model_).Add(node_hands_);
 
 
   // Game stuff
 
-  arm_state_ = RIGHT_ARM;
+  arm_state_ = BOTH_ARMS;
 
   // Physics
 
@@ -132,10 +135,10 @@ using namespace s9::oni;
 void PhantomLimb::Update(double_t dt) {
 
   // update the skeleton positions
-  md5_.skeleton().update();
+  md5_.skeleton().Update();
 
   // Update Oculus - take the difference
-  oculus_.update(dt);
+  oculus_.Update(dt);
 
 
   // Update Physics
@@ -144,9 +147,9 @@ void PhantomLimb::Update(double_t dt) {
   // Now copy over the positions of the captured skeleton to the MD5
 
   if (openni_.ready()) {
-    openni_skeleton_tracker_.update();
-    OpenNISkeleton::User user = openni_skeleton_tracker_.user(1);
-    if (user.isTracked()){
+    openni_skeleton_tracker_.Update();
+    OpenNISkeleton::User user = openni_skeleton_tracker_.GetUserByID(1);
+    if (user.IsTracked()){
 
       // Returned matrices are rotated 180 which is annoying but thats the OpenNI Way
       // In addition, the MD5 model may not have rest orientations that are anywhere near the same :S
@@ -191,7 +194,7 @@ void PhantomLimb::Update(double_t dt) {
       // Sintel's & tracksuits bones have different alignments in the arms due to some blender issues it seems
       ///\todo we should always get a consistent postion for bones
  
-      Bone * luparm = md5_.skeleton().bone("upper_arm.L");
+      Bone * luparm = md5_.skeleton().GetBone("upper_arm.L");
       if (luparm != nullptr) {
         
         glm::quat final_rotation;
@@ -200,19 +203,18 @@ void PhantomLimb::Update(double_t dt) {
         switch (arm_state_) {
           case BOTH_ARMS:
           case LEFT_ARM:
-            final_rotation = user.skeleton().bone("Left Shoulder")->rotation();
+            final_rotation = user.skeleton().GetBone("Left Shoulder")->rotation();
           break;
 
           case RIGHT_ARM:
             // Convert back to Euler, reverse then rebuild - not the best way I suspect :S
-            glm::quat tq = user.skeleton().bone("Right Shoulder")->rotation();
+            glm::quat tq = user.skeleton().GetBone("Right Shoulder")->rotation();
 
             float_t angle = glm::angle(tq);
             glm::vec3 axis = glm::axis(tq);
             final_rotation = glm::angleAxis(-angle, -axis.x,axis.y,axis.z);
 
           break;
-
         }
 
         luparm->set_rotation_relative( rys * rzs * final_rotation   * rzsi * rysi );
@@ -220,39 +222,79 @@ void PhantomLimb::Update(double_t dt) {
       }
 
 
-      Bone * lloarm = md5_.skeleton().bone("lower_arm.L");
+      Bone * lloarm = md5_.skeleton().GetBone("lower_arm.L");
       if (lloarm != nullptr) {
         glm::quat final_rotation;
 
         switch (arm_state_) {
           case BOTH_ARMS:
           case LEFT_ARM:
-            final_rotation = user.skeleton().bone("Left Elbow")->rotation();
+            final_rotation = user.skeleton().GetBone("Left Elbow")->rotation();
           break;
 
           case RIGHT_ARM:
             // Convert back to Euler, reverse then rebuild - not the best way I suspect :S
-            glm::quat tq =user.skeleton().bone("Right Elbow")->rotation();
+            glm::quat tq =user.skeleton().GetBone("Right Elbow")->rotation();
             float_t angle = glm::angle(tq);
             glm::vec3 axis = glm::axis(tq);
             
             final_rotation = glm::angleAxis(-angle, -axis.x,axis.y,axis.z);
         
           break;
-
-        
         }
+
         lloarm->set_rotation_relative(  rys * rzs * final_rotation * rzsi * rysi);
       }
         
 
-      Bone * ruparm = md5_.skeleton().bone("upper_arm.R");
-      if (ruparm != nullptr)
-        ruparm->set_rotation_relative( nrys * nrzs *  user.skeleton().bone("Right Shoulder")->rotation() * nrzsi * nrysi  );
+      Bone * ruparm = md5_.skeleton().GetBone("upper_arm.R");
+      if (ruparm != nullptr){
+        glm::quat final_rotation;
 
-      Bone * rloarm = md5_.skeleton().bone("lower_arm.R");
-      if (rloarm != nullptr)
-        rloarm->set_rotation_relative(  nrys * nrzs  * user.skeleton().bone("Right Elbow")->rotation() * nrzsi * nrysi );
+        switch (arm_state_) {
+          case BOTH_ARMS:
+          case RIGHT_ARM:
+            final_rotation = user.skeleton().GetBone("Right Shoulder")->rotation();
+          break;
+
+          case LEFT_ARM:
+            // Convert back to Euler, reverse then rebuild - not the best way I suspect :S
+            glm::quat tq = user.skeleton().GetBone("Left Shoulder")->rotation();
+
+            float_t angle = glm::angle(tq);
+            glm::vec3 axis = glm::axis(tq);
+            final_rotation = glm::angleAxis(-angle, -axis.x, axis.y, axis.z);
+
+          break;
+        }
+
+        ruparm->set_rotation_relative( nrys * nrzs *  final_rotation * nrzsi * nrysi  );
+
+      }
+
+      Bone * rloarm = md5_.skeleton().GetBone("lower_arm.R");
+      if (rloarm != nullptr) {
+        glm::quat final_rotation;
+
+        switch (arm_state_) {
+          case BOTH_ARMS:
+          case RIGHT_ARM:
+            final_rotation = user.skeleton().GetBone("Right Elbow")->rotation();
+          break;
+
+          case LEFT_ARM:
+            // Convert back to Euler, reverse then rebuild - not the best way I suspect :S
+            glm::quat tq = user.skeleton().GetBone("Left Elbow")->rotation();
+
+            float_t angle = glm::angle(tq);
+            glm::vec3 axis = glm::axis(tq);
+            final_rotation = glm::angleAxis(-angle, -axis.x, axis.y, axis.z);
+
+          break;
+        }
+
+        rloarm->set_rotation_relative(  nrys * nrzs  * final_rotation * nrzsi * nrysi );
+      }
 
     }
   }
@@ -263,7 +305,7 @@ void PhantomLimb::Update(double_t dt) {
 
   // Dependent on Arm state
 
-  Bone * lloarm = md5_.skeleton().bone("lower_arm.L");
+  Bone * lloarm = md5_.skeleton().GetBone("lower_arm.L");
   if (lloarm != nullptr){
 
     glm::vec4 lp = glm::inverse(model_base_mat_) * lloarm->skinned_matrix() * hand_pos_left_;
@@ -276,7 +318,7 @@ void PhantomLimb::Update(double_t dt) {
   }
 
 
-  Bone * rloarm = md5_.skeleton().bone("lower_arm.R");
+  Bone * rloarm = md5_.skeleton().GetBone("lower_arm.R");
   if (rloarm != nullptr){
     glm::vec4 lp =  glm::inverse(model_base_mat_) * rloarm->skinned_matrix() * hand_pos_right_;
 
@@ -312,33 +354,33 @@ void PhantomLimb::Update(double_t dt) {
   GLfloat depth = 1.0f;
 
   // Create the FBO and setup the cameras
-  if (!fbo_ && oculus_.connected()){
+  if (!fbo_ && oculus_.Connected()){
     
       glm::vec2 s = oculus_.fbo_size();
       fbo_ = FBO(static_cast<size_t>(s.x), static_cast<size_t>(s.y)); 
 
-      camera_left_.resize(static_cast<size_t>(s.x / 2.0f), static_cast<size_t>(s.y ));
-      camera_right_.resize(static_cast<size_t>(s.x / 2.0f), static_cast<size_t>(s.y ),static_cast<size_t>(s.x / 2.0f) );
+      camera_left_.Resize(static_cast<size_t>(s.x / 2.0f), static_cast<size_t>(s.y ));
+      camera_right_.Resize(static_cast<size_t>(s.x / 2.0f), static_cast<size_t>(s.y ),static_cast<size_t>(s.x / 2.0f) );
 
-      camera_.resize(static_cast<size_t>(s.x ), static_cast<size_t>(s.y ));
+      camera_.Resize(static_cast<size_t>(s.x ), static_cast<size_t>(s.y ));
 
       camera_left_.set_projection_matrix(oculus_.left_projection());
       camera_right_.set_projection_matrix(oculus_.right_projection());
 
-      camera_ortho_.resize(oculus_.screen_resolution().x, oculus_.screen_resolution().y);
+      camera_ortho_.Resize(oculus_.screen_resolution().x, oculus_.screen_resolution().y);
 
       glGenVertexArrays(1, &(null_VAO_));
       
   }
 
   if (fbo_){
-    fbo_.bind();
+    fbo_.Bind();
     // Clear
     glClearBufferfv(GL_COLOR, 0, &glm::vec4(0.9f, 0.9f, 0.9f, 1.0f)[0]);
     glClearBufferfv(GL_DEPTH, 0, &depth );
 
     // Grab Textures
-    openni_.update(); // While thread safe, its best to put this immediately before the update_textures
+    openni_.Update(); // While thread safe, its best to put this immediately before the update_textures
     
     //openni_.update_textures(); ///\todo this is causing errors
 
@@ -346,33 +388,33 @@ void PhantomLimb::Update(double_t dt) {
     glm::quat q = glm::inverse(oculus_.orientation());
     oculus_rotation_dt_ = glm::inverse(oculus_rotation_prev_) * q;
     oculus_rotation_prev_ =  q;
-    camera_.rotate(oculus_rotation_dt_);
-    camera_.update();
+    camera_.Rotate(oculus_rotation_dt_);
+    camera_.Update();
 
     camera_left_.set_view_matrix( camera_.view_matrix() * oculus_.left_inter() );
     camera_right_.set_view_matrix(  camera_.view_matrix() * oculus_.right_inter() );
 
     // Draw Balls left and right
 
-    node_ball_.add(camera_left_);
+    node_ball_.Add(camera_left_);
     for (glm::mat4 mat : physics_.ball_orients()){
       node_ball_.set_matrix(mat);
-      node_ball_.draw();
+      node_ball_.Draw();
     }
-    node_ball_.remove(camera_left_);
+    node_ball_.Remove(camera_left_);
 
 
-    node_ball_.add(camera_right_);
+    node_ball_.Add(camera_right_);
     for (glm::mat4 mat : physics_.ball_orients()){
       node_ball_.set_matrix(mat);
-      node_ball_.draw();
+      node_ball_.Draw();
     }
-    node_ball_.remove(camera_right_);
+    node_ball_.Remove(camera_right_);
 
     // Draw Model
 
-    node_left_.draw();
-    node_right_.draw();
+    node_left_.Draw();
+    node_right_.Draw();
 
     // Draw the hand collision units
 
@@ -380,19 +422,19 @@ void PhantomLimb::Update(double_t dt) {
     /*
     glm::mat4 mat = glm::translate(glm::mat4(1.0f), glm::vec3(160,120,0));
     node_depth_.set_matrix(mat);
-    openni_.texture_depth().bind();
-    node_depth_.draw();
-    openni_.texture_depth().unbind();
+    openni_.texture_depth().Bind();
+    node_depth_.Draw();
+    openni_.texture_depth().Unbind();
 
     mat = glm::translate(glm::mat4(1.0f), glm::vec3(480,120,0));
     node_colour_.set_matrix(mat);
-    openni_.texture_colour().bind();
-    node_colour_.draw();
-    openni_.texture_colour().unbind();
+    openni_.texture_colour().Bind();
+    node_colour_.Draw();
+    openni_.texture_colour().Unbind();
 
     */
 
-    fbo_.unbind();
+    fbo_.Unbind();
     //CXGLERROR
 
     // Draw to main screen - this cheats and uses a geometry shader
@@ -406,8 +448,8 @@ void PhantomLimb::Update(double_t dt) {
 
     glViewport(0,0, camera_ortho_.width(), camera_ortho_.height());
 
-    shader_warp_.bind();
-    fbo_.colour().bind();
+    shader_warp_.Bind();
+    fbo_.colour().Bind();
 
     shader_warp_.s("uDistortionOffset", oculus_.distortion_xcenter_offset()); // Can change with future headsets apparently
     shader_warp_.s("uDistortionScale", 1.0f/oculus_.distortion_scale());
@@ -416,8 +458,8 @@ void PhantomLimb::Update(double_t dt) {
 
     glDrawArrays(GL_POINTS, 0, 1);
 
-    fbo_.colour().unbind();
-    shader_warp_.unbind();
+    fbo_.colour().Unbind();
+    shader_warp_.Unbind();
 
     glBindVertexArray(0);
 
@@ -447,11 +489,11 @@ PhantomLimb::~PhantomLimb() {
 void PhantomLimb::ProcessEvent(MouseEvent e, GLFWwindow* window){}
 
 /*
- * Called when the window is resized. You should set cameras here
+ * Called when the window is Resized. You should set cameras here
  */
 
 void PhantomLimb::ProcessEvent(ResizeEvent e, GLFWwindow* window){
-  camera_ortho_.resize(e.w,e.h);
+  camera_ortho_.Resize(e.w,e.h);
 }
 
 void PhantomLimb::ProcessEvent(KeyboardEvent e, GLFWwindow* window){}
@@ -495,6 +537,17 @@ UXWindow::UXWindow(gl::WithUXApp &gtk_app, PhantomLimb &app) : gtk_app_(gtk_app)
   button_auto_game_->set_hexpand(true);
   button_auto_game_->set_vexpand(true);
 
+  button_oculus_ = new Gtk::Button("Reset Oculus View");
+  button_oculus_->signal_clicked().connect(sigc::mem_fun(*this, &UXWindow::on_button_oculus_clicked));
+  button_oculus_->set_hexpand(true);
+  button_oculus_->set_vexpand(true);
+
+  button_tracking_ = new Gtk::Button("Restart Tracking");
+  button_tracking_->signal_clicked().connect(sigc::mem_fun(*this, &UXWindow::on_button_tracking_clicked));
+  button_tracking_->set_hexpand(true);
+  button_tracking_->set_vexpand(true);
+
+
   button_quit_ = new Gtk::Button("Quit");
   button_quit_->signal_clicked().connect(sigc::mem_fun(*this, &UXWindow::on_button_quit_clicked));
   button_quit_->set_hexpand(true);
@@ -502,11 +555,23 @@ UXWindow::UXWindow(gl::WithUXApp &gtk_app, PhantomLimb &app) : gtk_app_(gtk_app)
 
   signal_delete_event().connect(sigc::mem_fun(*this, &UXWindow::on_window_closed));
 
+  // Combo Box
+
+  combo_arms_.append("Both");
+  combo_arms_.append("Left Arm Dominate");
+  combo_arms_.append("Right Arm Dominate");
+  combo_arms_.set_active_text("Both");
+  combo_arms_.signal_changed().connect(sigc::mem_fun(*this, &UXWindow::on_combo_arms_changed));
+
   // This packs the button into the Window (a container).
   grid_.attach(*button_fire_,0,0,1,1);
   grid_.attach(*button_reset_,0,1,1,1);
   grid_.attach(*button_auto_game_,0,2,1,1);
-  grid_.attach(*button_quit_,0,3,1,1);
+  grid_.attach(*button_tracking_,0,3,1,1);
+  grid_.attach(*button_quit_,0,4,1,1);
+
+  grid_.attach(*button_oculus_,1,0,1,1);
+  grid_.attach(combo_arms_,1,1,1,1);
 
   grid_.set_hexpand();
   grid_.set_vexpand();
@@ -520,6 +585,11 @@ UXWindow::~UXWindow() {
   // Need to signal that we are done here
   delete button_fire_;
   delete button_reset_;
+  delete button_auto_game_;
+  delete button_tracking_;
+  delete button_oculus_;
+  delete button_quit_;
+
 }
 
 void UXWindow::on_button_fire_clicked() {
@@ -532,10 +602,20 @@ void UXWindow::on_button_reset_clicked() {
   app_.ResetPhysics();
 }
 
+void UXWindow::on_button_tracking_clicked() {
+  cout << "Restarting Tracking" << endl;
+  app_.RestartTracking();
+}
+
 
 void UXWindow::on_button_auto_game_clicked() {
   cout << "Auto Game Clicked" << endl;
   app_.PlayGame(!app_.playing_game());
+}
+
+void UXWindow::on_button_oculus_clicked() {
+  cout << "Resetting Oculus View" << endl;
+  app_.ResetOculus();
 }
 
 void UXWindow::on_button_quit_clicked() {
@@ -549,6 +629,16 @@ bool UXWindow::on_window_closed(GdkEventAny* event) {
   return false;
 }
 
+void UXWindow::on_combo_arms_changed() {
+  Glib::ustring selected = combo_arms_.get_active_text();
+  if (selected.compare( Glib::ustring("Both")) == 0){
+    app_.SetHanded(BOTH_ARMS);
+  } else if (selected.compare( Glib::ustring("Left Arm Dominate")) == 0){
+    app_.SetHanded(LEFT_ARM);
+  } else if (selected.compare( Glib::ustring("Right Arm Dominate")) == 0) {
+    app_.SetHanded(RIGHT_ARM);
+  }
+}
 
 #endif
 
@@ -569,7 +659,14 @@ int main (int argc, const char * argv[]) {
 
 #ifdef _SEBURO_LINUX
   // Change HDMI-0 to whatever is listed in the output for the GLFW Monitor Screens
-  a.CreateWindowFullScreen("Oculus", 0, 0, "HDMI-0");
+
+  XMLSettings settings;
+  if (!settings.LoadFile(s9::File("./data/settings.xml"))){
+    cerr << "PhantomLimb: Could not find data/settings.xml. Aborting." << endl;
+    return -1;
+  }
+
+  a.CreateWindowFullScreen("Oculus", 0, 0, settings["oculus_display"].c_str());
   
   //a.CreateWindow("Oculus", 1280, 800);
 

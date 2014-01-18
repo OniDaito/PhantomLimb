@@ -24,6 +24,7 @@
 #include "s9/composite_shapes.hpp"
 #include "s9/oculus/oculus.hpp"
 #include "s9/openni/openni.hpp"
+#include "s9/xml_parse.hpp"
 
 #include "physics.hpp"
 
@@ -34,6 +35,7 @@ namespace s9 {
 
 #ifdef _SEBURO_LINUX
 
+	// Type for selecting which arms to use
 	typedef enum {
 		BOTH_ARMS,
 		LEFT_ARM,
@@ -58,7 +60,10 @@ namespace s9 {
 	  void on_button_reset_clicked();
 	  void on_button_auto_game_clicked();
 	  void on_button_quit_clicked();
+	  void on_button_tracking_clicked();
+	  void on_button_oculus_clicked();
 	  bool on_window_closed(GdkEventAny* event);
+	  void on_combo_arms_changed();
 
 	  // Layout
 
@@ -68,7 +73,11 @@ namespace s9 {
 	  Gtk::Button* button_fire_;
 	  Gtk::Button* button_auto_game_;
 	  Gtk::Button* button_reset_;
+	  Gtk::Button* button_oculus_;
+	  Gtk::Button* button_tracking_;
 	  Gtk::Button* button_quit_;
+
+	  Gtk::ComboBoxText combo_arms_;
 
 	  PhantomLimb& app_;
 	  gl::WithUXApp& gtk_app_;
@@ -97,7 +106,10 @@ namespace s9 {
 		void FireBall();
 		void ResetPhysics() { physics_.Reset(); }
 		void PlayGame(bool b) { playing_game_ = b; last_shot_ = 0; }
-		
+		void RestartTracking() { openni_skeleton_tracker_.RestartTracking(); }
+		void ResetOculus() { oculus_.ResetView(); }
+		void SetHanded(ArmState a) { arm_state_ = a; }
+
 		bool playing_game() {return playing_game_; }
 
 	protected:
@@ -184,6 +196,10 @@ namespace s9 {
 
 		ArmState arm_state_;
 		
+		// Read settings
+
+		XMLSettings file_settings_;
+
 	};
 }
 
