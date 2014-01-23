@@ -32,9 +32,11 @@ using namespace s9::oni;
   shader_quad_= Shader( s9::File("./data/quad_texture.vert"), s9::File("./data/quad_texture.frag"));
   shader_colour_ = Shader(s9::File("./data/solid_colour.glsl"));
 
-   shader_warp_ = Shader( s9::File("./data/barrel.vert"), 
+  shader_warp_ = Shader( s9::File("./data/barrel.vert"), 
         s9::File("./data/barrel.frag"),
         s9::File("./data/barrel.geom"));
+
+  shader_room_ = Shader( s9::File("./data/basic_mesh.vert"),  s9::File("./data/textured_mesh.frag"));
 
   // Oculus Rift Setup
 
@@ -110,13 +112,22 @@ using namespace s9::oni;
   //skeleton_shape_.Add(shader_colour_).Add(camera_);
   //node_model_.Add(skeleton_shape_);
 
-  node_left_.Add(camera_left_).Add(node_model_).Add(node_hands_);
-  node_right_.Add(camera_right_).Add(node_model_).Add(node_hands_);
+  // Room
+  room_ = ObjMesh(s9::File("./data/room/Design_room.obj"));
+  room_.set_matrix(glm::scale(glm::mat4(1.0f), glm::vec3(0.02f,0.02f,0.02f)));
+  room_.Add(shader_room_);
 
+  //node_left_.Add(camera_left_).Add(node_model_).Add(node_hands_).Add(room_);
+  //node_right_.Add(camera_right_).Add(node_model_).Add(node_hands_).Add(room_);
 
+  node_left_.Add(camera_left_).Add(node_model_).Add(room_);
+  node_right_.Add(camera_right_).Add(node_model_).Add(room_);
+  
   // Game stuff
 
   arm_state_ = BOTH_ARMS;
+  playing_game_ = false;
+  last_shot_ = 0;
 
   // Physics
 
@@ -334,7 +345,7 @@ void PhantomLimb::Update(double_t dt) {
   // Update game state
   if (playing_game_){
     last_shot_ += dt / 1000;
-    if (last_shot_ > 5.0) {
+    if (last_shot_ > FromStringS9<float_t>(file_settings_["game/time"])) {
       last_shot_ = 0;
       FireBall();
     }
@@ -412,7 +423,6 @@ void PhantomLimb::Update(double_t dt) {
     node_ball_.Remove(camera_right_);
 
     // Draw Model
-
     node_left_.Draw();
     node_right_.Draw();
 
@@ -470,10 +480,20 @@ void PhantomLimb::Update(double_t dt) {
 /// Fire a ball into the scene
 void PhantomLimb::FireBall() {
 
-  float_t r0 = static_cast<float_t>(std::rand()) /  RAND_MAX;
-  float_t r1 = -1.0f +  (r0 * 2.0f);
+  float_t rval0 = static_cast<float_t>(std::rand()) /  RAND_MAX;
+  float_t rval1 = static_cast<float_t>(std::rand()) /  RAND_MAX;
 
-  physics_.AddBall(ball_radius_, glm::vec3( r1 , 1.0f + (r0 * 0.5f), -4.0f), glm::vec3(0.0f,2.0f * r0, 4.0f * r0 + 2.0f));
+  float_t game_width = FromStringS9<float_t>(file_settings_["game/width"]);
+  float_t speed_min = FromStringS9<float_t>(file_settings_["game/speed/min"]);
+  float_t speed_factor = FromStringS9<float_t>(file_settings_["game/speed/factor"]);
+
+  float_t height_min = FromStringS9<float_t>(file_settings_["game/height/min"]);
+  float_t height_factor = FromStringS9<float_t>(file_settings_["game/height/factor"]);
+
+  float_t xpos = -game_width +  (rval0 * 2.0f * game_width);
+
+  physics_.AddBall(ball_radius_, glm::vec3( xpos , height_min + (rval1 * height_factor), -4.0f), 
+      glm::vec3(0.0f, 1.0f + rval1, speed_factor * rval1 + speed_min));
 }
 
 

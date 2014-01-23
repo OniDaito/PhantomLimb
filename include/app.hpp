@@ -25,6 +25,7 @@
 #include "s9/oculus/oculus.hpp"
 #include "s9/openni/openni.hpp"
 #include "s9/xml_parse.hpp"
+#include "s9/obj_mesh.hpp"
 
 #include "physics.hpp"
 
@@ -142,6 +143,8 @@ namespace s9 {
 		MD5Model md5_;
 		SkeletonShape skeleton_shape_;
 
+		ObjMesh room_;
+
 		// Oculus Rift
 		oculus::OculusBase oculus_;
 		glm::quat oculus_rotation_dt_;
@@ -174,6 +177,7 @@ namespace s9 {
 		gl::Shader shader_quad_;
 		gl::Shader shader_colour_;
 		gl::Shader shader_warp_;
+		gl::Shader shader_room_;
 
 		// Colours
 

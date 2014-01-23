@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<oculus_display>HDMI-0</oculus_display>
+
+<game>
+  <width>1.1</width>
+  <speed>
+    <min>3.2</min>
+    <factor>0.8</factor>
+  </speed>
+  <height>
+    <min>1.4</min>
+    <factor>0.2</factor>
+  </height>
+  <time>3.0</time>
+</game>
