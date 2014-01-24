@@ -113,6 +113,9 @@ namespace s9 {
 
 		bool playing_game() {return playing_game_; }
 
+		void UpdateMainThread(double_t dt);
+
+
 	protected:
 
 		// Geometry

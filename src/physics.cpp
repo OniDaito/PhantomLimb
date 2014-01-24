@@ -69,11 +69,12 @@ void PhantomPhysics::AddBall(float_t radius, glm::vec3 pos, glm::vec3 velocity){
 }
 
 
+// Update with dt in seconds passed
 void PhantomPhysics::Update(double dt){
   CXSHARED
   obj_->update_mutex.lock();
   if (obj_->dynamics_world && obj_->running_) {
-    obj_->dynamics_world->stepSimulation(dt / 1000.0, 5);
+    obj_->dynamics_world->stepSimulation(dt, 10);
     
     // Update handy ball matrices
     for (size_t i = 0; i < obj_->balls.size(); ++i) {

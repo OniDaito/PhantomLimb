@@ -131,7 +131,8 @@ using namespace s9::oni;
 
   // Physics
 
-  physics_ = PhantomPhysics(-3.0f, 0.2f);
+  physics_ = PhantomPhysics( FromStringS9<float_t>(file_settings_["game/gravity"]), 
+    FromStringS9<float_t>(file_settings_["game/hand_radius"]));
 
   CXGLERROR
 
@@ -143,17 +144,12 @@ using namespace s9::oni;
 
 }
 
-void PhantomLimb::Update(double_t dt) {
+// Moved onto the main thread as GCC gets upset on quitting the thread with OpenNI
+
+void PhantomLimb::UpdateMainThread(double_t dt) { 
 
   // update the skeleton positions
   md5_.skeleton().Update();
-
-  // Update Oculus - take the difference
-  oculus_.Update(dt);
-
-
-  // Update Physics
-  physics_.Update(dt);
 
   // Now copy over the positions of the captured skeleton to the MD5
 
@@ -342,16 +338,18 @@ void PhantomLimb::Update(double_t dt) {
   }
 
 
-  // Update game state
-  if (playing_game_){
-    last_shot_ += dt / 1000;
-    if (last_shot_ > FromStringS9<float_t>(file_settings_["game/time"])) {
-      last_shot_ = 0;
-      FireBall();
-    }
-  }
+ 
 
 
+}
+
+void PhantomLimb::Update(double_t dt) {
+
+   // Update Oculus - take the difference
+  oculus_.Update(dt);
+
+
+ 
 
 }
 
@@ -363,6 +361,20 @@ void PhantomLimb::Update(double_t dt) {
  void PhantomLimb::Display(GLFWwindow* window, double_t dt){
 
   GLfloat depth = 1.0f;
+
+  // Update Physics
+  physics_.Update(dt);
+
+   // Update game state
+  if (playing_game_){
+    last_shot_ += dt ;
+    if (last_shot_ > FromStringS9<float_t>(file_settings_["game/time"])) {
+      last_shot_ = 0;
+      FireBall();
+    }
+  }
+
+  UpdateMainThread(dt);
 
   // Create the FBO and setup the cameras
   if (!fbo_ && oculus_.Connected()){

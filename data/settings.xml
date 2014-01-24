@@ -13,4 +13,6 @@
     <factor>0.2</factor>
   </height>
   <time>3.0</time>
+  <gravity>-2.5</gravity>
+  <hand_radius>0.2</hand_radius>
 </game>
