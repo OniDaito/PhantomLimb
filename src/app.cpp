@@ -348,9 +348,6 @@ void PhantomLimb::Update(double_t dt) {
    // Update Oculus - take the difference
   oculus_.Update(dt);
 
-
- 
-
 }
 
 
@@ -361,6 +358,8 @@ void PhantomLimb::Update(double_t dt) {
  void PhantomLimb::Display(GLFWwindow* window, double_t dt){
 
   GLfloat depth = 1.0f;
+
+  // Seems physics prefers to be added here. Likely the FireBall func needs to be called on the same thread :S
 
   // Update Physics
   physics_.Update(dt);
