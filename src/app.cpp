@@ -209,9 +209,12 @@ void PhantomLimb::UpdateMainThread(double_t dt) {
         // Deal with the mirroring of arms
         switch (arm_state_) {
           case BOTH_ARMS:
-          case LEFT_ARM:
-            final_rotation = user.skeleton().GetBone("Left Shoulder")->rotation();
-          break;
+        final_rotation = user.skeleton().GetBone("Left Shoulder")->rotation();
+break;  
+	case LEFT_ARM:
+            
+        	final_rotation = glm::angleAxis(90.0f,0.0f,0.0f,1.0f);  
+	break;
 
           case RIGHT_ARM:
             // Convert back to Euler, reverse then rebuild - not the best way I suspect :S
@@ -235,9 +238,12 @@ void PhantomLimb::UpdateMainThread(double_t dt) {
 
         switch (arm_state_) {
           case BOTH_ARMS:
-          case LEFT_ARM:
-            final_rotation = user.skeleton().GetBone("Left Elbow")->rotation();
-          break;
+		final_rotation = user.skeleton().GetBone("Left Elbow")->rotation();
+
+        break;  
+	case LEFT_ARM:
+		final_rotation = glm::quat();
+            break;
 
           case RIGHT_ARM:
             // Convert back to Euler, reverse then rebuild - not the best way I suspect :S
@@ -260,8 +266,10 @@ void PhantomLimb::UpdateMainThread(double_t dt) {
 
         switch (arm_state_) {
           case BOTH_ARMS:
-          case RIGHT_ARM:
-            final_rotation = user.skeleton().GetBone("Right Shoulder")->rotation();
+	final_rotation = user.skeleton().GetBone("Right Shoulder")->rotation();
+        break;
+	  case RIGHT_ARM:
+            final_rotation = glm::angleAxis(90.0f,0.0f,0.0f,1.0f); // user.skeleton().GetBone("Right Shoulder")->rotation();
           break;
 
           case LEFT_ARM:
@@ -285,9 +293,12 @@ void PhantomLimb::UpdateMainThread(double_t dt) {
 
         switch (arm_state_) {
           case BOTH_ARMS:
+	  final_rotation = user.skeleton().GetBone("Right Elbow")->rotation();
+
+	break;
           case RIGHT_ARM:
-            final_rotation = user.skeleton().GetBone("Right Elbow")->rotation();
-          break;
+        	final_rotation = glm::quat();  
+	 break;
 
           case LEFT_ARM:
             // Convert back to Euler, reverse then rebuild - not the best way I suspect :S
@@ -348,6 +359,9 @@ void PhantomLimb::Update(double_t dt) {
    // Update Oculus - take the difference
   oculus_.Update(dt);
 
+
+ 
+
 }
 
 
@@ -358,8 +372,6 @@ void PhantomLimb::Update(double_t dt) {
  void PhantomLimb::Display(GLFWwindow* window, double_t dt){
 
   GLfloat depth = 1.0f;
-
-  // Seems physics prefers to be added here. Likely the FireBall func needs to be called on the same thread :S
 
   // Update Physics
   physics_.Update(dt);
