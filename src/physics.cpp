@@ -31,6 +31,9 @@ void PhantomPhysics::AddBall(float_t radius, glm::vec3 pos, glm::vec3 velocity){
 
   CXSHARED
 
+  if ( obj_->balls.size() > 20)
+    Reset();
+
   //create a few dynamic rigidbodies
   // Re-using the same collision is better for memory usage and performance
 
@@ -72,6 +75,7 @@ void PhantomPhysics::AddBall(float_t radius, glm::vec3 pos, glm::vec3 velocity){
 // Update with dt in seconds passed
 void PhantomPhysics::Update(double dt){
   CXSHARED
+
   obj_->update_mutex.lock();
   if (obj_->dynamics_world && obj_->running_) {
     obj_->dynamics_world->stepSimulation(dt, 10);
@@ -85,6 +89,9 @@ void PhantomPhysics::Update(double dt){
     }
   }
   obj_->update_mutex.unlock();
+
+  // Cheeky little reset in game
+ 
 }
 
 void PhantomPhysics::MoveLeftHand(glm::vec3 pos) {

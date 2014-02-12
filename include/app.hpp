@@ -39,8 +39,12 @@ namespace s9 {
 	// Type for selecting which arms to use
 	typedef enum {
 		BOTH_ARMS,
-		LEFT_ARM,
-		RIGHT_ARM
+		LEFT_ARM_RIGHT_FROZEN,
+		RIGHT_ARM_LEFT_FROZEN,
+		LEFT_ARM_RIGHT_MIRROR,
+		RIGHT_ARM_LEFT_MIRROR,
+		LEFT_ARM_COPY,
+		RIGHT_ARM_COPY
 	}ArmState;
 
 	class PhantomLimb;
@@ -52,7 +56,7 @@ namespace s9 {
 	class UXWindow : public Gtk::Window {
 
 	public:
-	  UXWindow(gl::WithUXApp &gtk_app, PhantomLimb &app);
+	  UXWindow(gl::WithUXApp &gtk_app, PhantomLimb &app, XMLSettings &settings);
 	  virtual ~UXWindow();
 
 	protected:
@@ -65,6 +69,9 @@ namespace s9 {
 	  void on_button_oculus_clicked();
 	  bool on_window_closed(GdkEventAny* event);
 	  void on_combo_arms_changed();
+	  void on_button_emphasis_toggled();
+	  void on_scale_speed_changed();
+	  void on_scale_width_changed();
 
 	  // Layout
 
@@ -80,8 +87,19 @@ namespace s9 {
 
 	  Gtk::ComboBoxText combo_arms_;
 
+	  Gtk::CheckButton* button_emphasis_;
+
+	  Gtk::HScale* scale_speed_;
+	  Gtk::Label scale_speed_label_;
+
+	  Gtk::HScale* scale_width_;
+	  Gtk::Label scale_width_label_;
+
+
 	  PhantomLimb& app_;
 	  gl::WithUXApp& gtk_app_;
+
+	  XMLSettings &file_settings_;
 
 	};
 
@@ -93,7 +111,10 @@ namespace s9 {
 
 	class PhantomLimb : public WindowApp<GLFWwindow*> {
 	public:
+		
+		PhantomLimb (XMLSettings &settings ) : file_settings_(settings) {};
 		~PhantomLimb();
+
 		
 		void Init();
 		void Display(GLFWwindow* window, double_t dt);
@@ -114,6 +135,8 @@ namespace s9 {
 		bool playing_game() {return playing_game_; }
 
 		void UpdateMainThread(double_t dt);
+
+		void set_arm_emphasis(bool b) { arm_emphasis_ = b; }
 
 
 	protected:
@@ -199,13 +222,14 @@ namespace s9 {
 		// Game
 
 		bool playing_game_;
+		bool arm_emphasis_;
 		double_t last_shot_;
 
 		ArmState arm_state_;
 		
 		// Read settings
 
-		XMLSettings file_settings_;
+		XMLSettings &file_settings_;
 
 	};
 }

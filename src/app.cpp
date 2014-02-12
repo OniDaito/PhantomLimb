@@ -15,6 +15,8 @@ using namespace s9;
 using namespace s9::gl;
 using namespace s9::oni;
 
+
+
 /*
  * Called when the mainloop starts, just once
  */
@@ -127,12 +129,13 @@ using namespace s9::oni;
 
   arm_state_ = BOTH_ARMS;
   playing_game_ = false;
+  arm_emphasis_ = FromStringS9<bool>(*file_settings_["game/emphasis"]);
   last_shot_ = 0;
 
   // Physics
 
-  physics_ = PhantomPhysics( FromStringS9<float_t>(file_settings_["game/gravity"]), 
-    FromStringS9<float_t>(file_settings_["game/hand_radius"]));
+  physics_ = PhantomPhysics( FromStringS9<float_t>( *file_settings_["game/gravity"]), 
+    FromStringS9<float_t>(*file_settings_["game/hand_radius"]));
 
   CXGLERROR
 
@@ -201,6 +204,8 @@ void PhantomLimb::UpdateMainThread(double_t dt) {
       // Sintel's & tracksuits bones have different alignments in the arms due to some blender issues it seems
       ///\todo we should always get a consistent postion for bones
  
+      // LEFT Model Arm Upper
+
       Bone * luparm = md5_.skeleton().GetBone("upper_arm.L");
       if (luparm != nullptr) {
         
@@ -209,21 +214,30 @@ void PhantomLimb::UpdateMainThread(double_t dt) {
         // Deal with the mirroring of arms
         switch (arm_state_) {
           case BOTH_ARMS:
-        final_rotation = user.skeleton().GetBone("Left Shoulder")->rotation();
-break;  
-	case LEFT_ARM:
-            
-        	final_rotation = glm::angleAxis(90.0f,0.0f,0.0f,1.0f);  
-	break;
+          case LEFT_ARM_RIGHT_MIRROR:
+          case LEFT_ARM_COPY:
+            final_rotation = user.skeleton().GetBone("Left Shoulder")->rotation();
+          break;  
+	       
+          case LEFT_ARM_RIGHT_FROZEN:
+            final_rotation = glm::angleAxis(90.0f,0.0f,0.0f,1.0f);  
+          break;
 
-          case RIGHT_ARM:
-            // Convert back to Euler, reverse then rebuild - not the best way I suspect :S
+          case RIGHT_ARM_LEFT_MIRROR:
+          case RIGHT_ARM_LEFT_FROZEN: {
             glm::quat tq = user.skeleton().GetBone("Right Shoulder")->rotation();
-
             float_t angle = glm::angle(tq);
             glm::vec3 axis = glm::axis(tq);
             final_rotation = glm::angleAxis(-angle, -axis.x,axis.y,axis.z);
+            break;
+          }
 
+          case RIGHT_ARM_COPY:
+            glm::quat tq = user.skeleton().GetBone("Right Shoulder")->rotation();
+            glm::quat tr = glm::angleAxis(-180.0f, 0.0f, 1.0f, 0.0f);
+            float_t angle = glm::angle(tq);
+            glm::vec3 axis = glm::axis(tq);
+            final_rotation = glm::angleAxis(angle, -axis.x,axis.y,axis.z) * tr; 
           break;
         }
 
@@ -231,6 +245,7 @@ break;
 
       }
 
+      // LEFT Model Arm Lower
 
       Bone * lloarm = md5_.skeleton().GetBone("lower_arm.L");
       if (lloarm != nullptr) {
@@ -238,54 +253,73 @@ break;
 
         switch (arm_state_) {
           case BOTH_ARMS:
-		final_rotation = user.skeleton().GetBone("Left Elbow")->rotation();
+          case LEFT_ARM_RIGHT_MIRROR:
+          case LEFT_ARM_COPY:
+		        final_rotation = user.skeleton().GetBone("Left Elbow")->rotation();
+          break;  
+	       
+          case LEFT_ARM_RIGHT_FROZEN:
+		        final_rotation = glm::quat();
+          break;
 
-        break;  
-	case LEFT_ARM:
-		final_rotation = glm::quat();
-            break;
-
-          case RIGHT_ARM:
-            // Convert back to Euler, reverse then rebuild - not the best way I suspect :S
+          case RIGHT_ARM_LEFT_MIRROR:
+          case RIGHT_ARM_COPY:
+          case RIGHT_ARM_LEFT_FROZEN:{
             glm::quat tq =user.skeleton().GetBone("Right Elbow")->rotation();
             float_t angle = glm::angle(tq);
             glm::vec3 axis = glm::axis(tq);
-            
             final_rotation = glm::angleAxis(-angle, -axis.x,axis.y,axis.z);
-        
-          break;
+            break;
+          }
+
+
         }
 
         lloarm->set_rotation_relative(  rys * rzs * final_rotation * rzsi * rysi);
       }
         
+      // RIGHT Arm Upper
 
       Bone * ruparm = md5_.skeleton().GetBone("upper_arm.R");
-      if (ruparm != nullptr){
+      if (ruparm != nullptr) {
         glm::quat final_rotation;
 
         switch (arm_state_) {
           case BOTH_ARMS:
-	final_rotation = user.skeleton().GetBone("Right Shoulder")->rotation();
-        break;
-	  case RIGHT_ARM:
-            final_rotation = glm::angleAxis(90.0f,0.0f,0.0f,1.0f); // user.skeleton().GetBone("Right Shoulder")->rotation();
+          case RIGHT_ARM_LEFT_MIRROR:
+          case RIGHT_ARM_COPY:
+            final_rotation = user.skeleton().GetBone("Right Shoulder")->rotation();
           break;
+	       
+          case RIGHT_ARM_LEFT_FROZEN: {
+            final_rotation = glm::angleAxis(90.0f,0.0f,0.0f,1.0f); // user.skeleton().GetBone("Right Shoulder")->rotation();
+            break;
+          }
 
-          case LEFT_ARM:
-            // Convert back to Euler, reverse then rebuild - not the best way I suspect :S
+          case LEFT_ARM_RIGHT_MIRROR:
+          case LEFT_ARM_RIGHT_FROZEN: {
             glm::quat tq = user.skeleton().GetBone("Left Shoulder")->rotation();
-
             float_t angle = glm::angle(tq);
             glm::vec3 axis = glm::axis(tq);
             final_rotation = glm::angleAxis(-angle, -axis.x, axis.y, axis.z);
+            break;
+          }
 
+          case LEFT_ARM_COPY:
+            glm::quat tq = user.skeleton().GetBone("Left Shoulder")->rotation();
+            glm::quat tr = glm::angleAxis(-180.0f, 0.0f, 1.0f, 0.0f);
+            float_t angle = glm::angle(tq);
+            glm::vec3 axis = glm::axis(tq);
+            final_rotation = glm::angleAxis(angle, -axis.x,axis.y,axis.z) * tr; 
           break;
+
         }
 
         ruparm->set_rotation_relative( nrys * nrzs *  final_rotation * nrzsi * nrysi  );
 
       }
+
+      // RIGHT Arm Lower
 
       Bone * rloarm = md5_.skeleton().GetBone("lower_arm.R");
       if (rloarm != nullptr) {
@@ -293,22 +327,26 @@ break;
 
         switch (arm_state_) {
           case BOTH_ARMS:
-	  final_rotation = user.skeleton().GetBone("Right Elbow")->rotation();
+          case RIGHT_ARM_LEFT_MIRROR:
+          case RIGHT_ARM_COPY:
+            final_rotation = user.skeleton().GetBone("Right Elbow")->rotation();
+          break;
+          
+          case RIGHT_ARM_LEFT_FROZEN:
+            final_rotation = glm::quat();  
+          break;
 
-	break;
-          case RIGHT_ARM:
-        	final_rotation = glm::quat();  
-	 break;
-
-          case LEFT_ARM:
-            // Convert back to Euler, reverse then rebuild - not the best way I suspect :S
+          case LEFT_ARM_RIGHT_MIRROR:
+          case LEFT_ARM_COPY:
+          case LEFT_ARM_RIGHT_FROZEN:{
             glm::quat tq = user.skeleton().GetBone("Left Elbow")->rotation();
-
             float_t angle = glm::angle(tq);
             glm::vec3 axis = glm::axis(tq);
             final_rotation = glm::angleAxis(-angle, -axis.x, axis.y, axis.z);
+            break;
+          }
 
-          break;
+        
         }
 
         rloarm->set_rotation_relative(  nrys * nrzs  * final_rotation * nrzsi * nrysi );
@@ -359,9 +397,6 @@ void PhantomLimb::Update(double_t dt) {
    // Update Oculus - take the difference
   oculus_.Update(dt);
 
-
- 
-
 }
 
 
@@ -379,7 +414,7 @@ void PhantomLimb::Update(double_t dt) {
    // Update game state
   if (playing_game_){
     last_shot_ += dt ;
-    if (last_shot_ > FromStringS9<float_t>(file_settings_["game/time"])) {
+    if (last_shot_ > FromStringS9<float_t>( *file_settings_["game/time"])) {
       last_shot_ = 0;
       FireBall();
     }
@@ -506,17 +541,39 @@ void PhantomLimb::FireBall() {
   float_t rval0 = static_cast<float_t>(std::rand()) /  RAND_MAX;
   float_t rval1 = static_cast<float_t>(std::rand()) /  RAND_MAX;
 
-  float_t game_width = FromStringS9<float_t>(file_settings_["game/width"]);
-  float_t speed_min = FromStringS9<float_t>(file_settings_["game/speed/min"]);
-  float_t speed_factor = FromStringS9<float_t>(file_settings_["game/speed/factor"]);
+  float_t game_width = FromStringS9<float_t>(*file_settings_["game/width"]);
+  float_t speed_min = FromStringS9<float_t>(*file_settings_["game/speed/min"]);
+  float_t speed_factor = FromStringS9<float_t>(*file_settings_["game/speed/factor"]);
 
-  float_t height_min = FromStringS9<float_t>(file_settings_["game/height/min"]);
-  float_t height_factor = FromStringS9<float_t>(file_settings_["game/height/factor"]);
+  float_t height_min = FromStringS9<float_t>(*file_settings_["game/height/min"]);
+  float_t height_factor = FromStringS9<float_t>(*file_settings_["game/height/factor"]);
 
-  float_t xpos = -game_width +  (rval0 * 2.0f * game_width);
+  float_t xpos = -game_width + (rval0 * 2.0f * game_width);
+
+  if (arm_emphasis_){
+    switch (arm_state_) {
+      case BOTH_ARMS:
+      case LEFT_ARM_RIGHT_MIRROR:
+      case RIGHT_ARM_LEFT_MIRROR:
+      break;
+           
+      case LEFT_ARM_COPY:
+      case LEFT_ARM_RIGHT_FROZEN:
+        xpos = (-game_width * 0.1) + (rval0 * 1.1 * game_width);
+      break;
+
+     
+      case RIGHT_ARM_LEFT_FROZEN: 
+      case RIGHT_ARM_COPY:
+        xpos = -game_width + (rval0 * 1.1f * game_width);
+      break;
+    }
+
+  }
+
 
   physics_.AddBall(ball_radius_, glm::vec3( xpos , height_min + (rval1 * height_factor), -4.0f), 
-      glm::vec3(0.0f, 1.0f + rval1, speed_factor * rval1 + speed_min));
+      glm::vec3(0.0f, (4.0f - speed_min + rval1 ) * 0.5f + rval0, speed_factor * rval1 + speed_min));
 }
 
 
@@ -551,7 +608,7 @@ void PhantomLimb::ProcessEvent(KeyboardEvent e, GLFWwindow* window){}
 
 
 ///\todo passing in the gtk_app is a bit naughty I think
-UXWindow::UXWindow(gl::WithUXApp &gtk_app, PhantomLimb &app) : gtk_app_(gtk_app), app_(app)  {  
+UXWindow::UXWindow(gl::WithUXApp &gtk_app, PhantomLimb &app, XMLSettings &settings) : gtk_app_(gtk_app), app_(app), file_settings_(settings)  {  
 
   //Glib::RefPtr< Screen > screen =  Gdk::Screen::get_default();
   //Glib::RefPtr<Display> display = screen->get_display();
@@ -598,11 +655,39 @@ UXWindow::UXWindow(gl::WithUXApp &gtk_app, PhantomLimb &app) : gtk_app_(gtk_app)
 
   signal_delete_event().connect(sigc::mem_fun(*this, &UXWindow::on_window_closed));
 
+  button_emphasis_ = new Gtk::CheckButton("Arm-Game Emphasis");
+  button_emphasis_->signal_toggled().connect(sigc::mem_fun(*this, &UXWindow::on_button_emphasis_toggled));
+  button_emphasis_->set_hexpand(true);
+  button_emphasis_->set_vexpand(true);
+  button_emphasis_->set_active( FromStringS9<bool>(*file_settings_["game/emphasis"]) );
+
+
+  scale_speed_ = new Gtk::HScale();
+  scale_speed_->set_range(0.1,4.0);
+  scale_speed_->signal_value_changed().connect(sigc::mem_fun(*this, &UXWindow::on_scale_speed_changed));
+  scale_speed_->set_value( FromStringS9<float_t>(*file_settings_["game/speed/min"]) );
+
+  scale_speed_label_.set_text("Ball Speed");
+
+
+  scale_width_ = new Gtk::HScale();
+  scale_width_->set_range(0.01,2.0);
+  scale_width_->set_increments(0.01,0.01);
+  scale_width_->signal_value_changed().connect(sigc::mem_fun(*this, &UXWindow::on_scale_width_changed));
+  scale_width_->set_value( FromStringS9<float_t>(*file_settings_["game/width"]) );
+
+  scale_width_label_.set_text("Ball Spawn Width");
+
   // Combo Box
 
   combo_arms_.append("Both");
-  combo_arms_.append("Left Arm Dominate");
-  combo_arms_.append("Right Arm Dominate");
+  combo_arms_.append("Left Arm Track, No Mirror");
+  combo_arms_.append("Right Arm Track, No Mirror");
+  combo_arms_.append("Left Arm Track, Mirrored Right");
+  combo_arms_.append("Right Arm Track, Mirrored Left");
+  //combo_arms_.append("Left Arm, Copied Right");
+  //combo_arms_.append("Right Arm, Copied Left");
+
   combo_arms_.set_active_text("Both");
   combo_arms_.signal_changed().connect(sigc::mem_fun(*this, &UXWindow::on_combo_arms_changed));
 
@@ -613,8 +698,15 @@ UXWindow::UXWindow(gl::WithUXApp &gtk_app, PhantomLimb &app) : gtk_app_(gtk_app)
   grid_.attach(*button_tracking_,0,3,1,1);
   grid_.attach(*button_quit_,0,4,1,1);
 
-  grid_.attach(*button_oculus_,1,0,1,1);
-  grid_.attach(combo_arms_,1,1,1,1);
+  grid_.attach(*button_oculus_,1,0,2,1);
+  grid_.attach(combo_arms_,1,1,2,1);
+  grid_.attach(*button_emphasis_,1,2,2,1);
+
+  grid_.attach(*scale_speed_,2,3,1,1);
+  grid_.attach(scale_speed_label_,1,3,1,1);
+
+  grid_.attach(*scale_width_,2,4,1,1);
+  grid_.attach(scale_width_label_,1,4,1,1);
 
   grid_.set_hexpand();
   grid_.set_vexpand();
@@ -632,7 +724,8 @@ UXWindow::~UXWindow() {
   delete button_tracking_;
   delete button_oculus_;
   delete button_quit_;
-
+  delete button_emphasis_;
+  delete scale_speed_;
 }
 
 void UXWindow::on_button_fire_clicked() {
@@ -672,15 +765,39 @@ bool UXWindow::on_window_closed(GdkEventAny* event) {
   return false;
 }
 
+void UXWindow::on_button_emphasis_toggled() {
+  cout << "Arm Emphasis Toggle" << endl;
+  app_.set_arm_emphasis(button_emphasis_->get_active());
+  file_settings_["game/emphasis"].SetValue(button_emphasis_->get_active());
+}
+
+void UXWindow::on_scale_speed_changed() {
+  cout << "Speed Changed: " << scale_speed_->get_value() << endl;
+  file_settings_["game/speed/min"].SetValue(scale_speed_->get_value());
+}
+
+void UXWindow::on_scale_width_changed() {
+  cout << "Width Changed: " << scale_width_->get_value() << endl;
+  file_settings_["game/width"].SetValue(scale_width_->get_value());
+}
+
 void UXWindow::on_combo_arms_changed() {
   Glib::ustring selected = combo_arms_.get_active_text();
   if (selected.compare( Glib::ustring("Both")) == 0){
     app_.SetHanded(BOTH_ARMS);
-  } else if (selected.compare( Glib::ustring("Left Arm Dominate")) == 0){
-    app_.SetHanded(LEFT_ARM);
-  } else if (selected.compare( Glib::ustring("Right Arm Dominate")) == 0) {
-    app_.SetHanded(RIGHT_ARM);
-  }
+  } else if (selected.compare( Glib::ustring("Left Arm Track, No Mirror")) == 0){
+    app_.SetHanded(LEFT_ARM_RIGHT_FROZEN);
+  } else if (selected.compare( Glib::ustring("Right Arm Track, No Mirror")) == 0) {
+    app_.SetHanded(RIGHT_ARM_LEFT_FROZEN);
+  }  else if (selected.compare( Glib::ustring("Left Arm Track, Mirrored Right")) == 0) {
+    app_.SetHanded(LEFT_ARM_RIGHT_MIRROR);
+  } else if (selected.compare( Glib::ustring("Right Arm Track, Mirrored Left")) == 0) {
+    app_.SetHanded(RIGHT_ARM_LEFT_MIRROR);
+  }/* else if (selected.compare( Glib::ustring("Left Arm, Copied Right")) == 0) {
+    app_.SetHanded(LEFT_ARM_COPY);
+  } else if (selected.compare( Glib::ustring("Right Arm, Copied Left")) == 0) {
+    app_.SetHanded(RIGHT_ARM_COPY);
+  }*/
 }
 
 #endif
@@ -692,7 +809,14 @@ void UXWindow::on_combo_arms_changed() {
 
 int main (int argc, const char * argv[]) {
 
-  PhantomLimb b;
+  XMLSettings settings;
+
+  if (!settings.LoadFile(s9::File("./data/settings.xml"))){
+    cerr << "PhantomLimb: Could not find data/settings.xml. Aborting." << endl;
+    return -1;
+  }
+
+  PhantomLimb b(settings);
 
 #ifdef _SEBURO_OSX
   WithUXApp a(b,argc,argv,3,2);
@@ -703,22 +827,18 @@ int main (int argc, const char * argv[]) {
 #ifdef _SEBURO_LINUX
   // Change HDMI-0 to whatever is listed in the output for the GLFW Monitor Screens
 
-  XMLSettings settings;
-  if (!settings.LoadFile(s9::File("./data/settings.xml"))){
-    cerr << "PhantomLimb: Could not find data/settings.xml. Aborting." << endl;
-    return -1;
-  }
 
-  a.CreateWindowFullScreen("Oculus", 0, 0, settings["oculus_display"].c_str());
+  a.CreateWindowFullScreen("Oculus", 0, 0, settings["oculus_display"].Value().c_str());
   
   //a.CreateWindow("Oculus", 1280, 800);
 
-  UXWindow ux(a,b);
-
+  UXWindow ux(a,b,settings);
   a.Run(ux);
 
   // Call shutdown once the GTK Run loop has quit. This makes GLFW quit cleanly
   //a.Shutdown();
+
+  settings.SaveFile(s9::File("./data/settings.xml"));
 
   return EXIT_SUCCESS;
 
