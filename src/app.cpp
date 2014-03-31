@@ -15,16 +15,79 @@ using namespace s9;
 using namespace s9::gl;
 using namespace s9::oni;
 
+PhantomLimb* PhantomLimb::pp_;
+
+
+PhantomLimb::PhantomLimb(XMLSettings &settings) : file_settings_(settings) {
+  window_manager_.AddListener(this);
+
+  // AntTweakBar
+  tweakbar_ = TwNewBar("PhantomLimb Controls");
+ 
+  // Create a GL Window, passing functions to that window
+
+  std::function<void()> initZero = std::bind(&PhantomLimb::InitSecondDisplay, this);
+  std::function<void(double_t)> drawZero = std::bind(&PhantomLimb::DrawSecondDisplay, this, std::placeholders::_1);
+  const GLWindow &windowZero = window_manager_.CreateWindow("PhantomLimb Controls",800,600, initZero, drawZero );
+
+  std::function<void()> initOne = std::bind(&PhantomLimb::InitOculusDisplay, this);
+  std::function<void(double_t)> drawOne = std::bind(&PhantomLimb::DrawOculusDisplay, this, std::placeholders::_1);
+  const GLWindow &windowOne = window_manager_.CreateWindow("PhantomLimb Oculus Window", 0, 0, initOne, drawOne, true, file_settings_["oculus_display"].Value().c_str(), -1, -1);
+
+  pp_ = this;
+
+};
+
+/*
+ * Called when the control window is created
+ */
+
+void PhantomLimb::InitSecondDisplay() {
+
+  camera_second_ = Camera(glm::vec3(0.0f,0.0f,1.0f));
+  camera_second_.set_orthographic(true);
+  
+  quad_controls_ = Quad(800,600);
+
+  TwWindowSize(800, 600);
+
+  controls_shader_ = Shader( s9::File("./data/quad_texture.vert"), s9::File("./data/quad_texture.frag"));
+
+  scale_speed_ =  FromStringS9<float_t>( *file_settings_["game/speed/factor"]);
+  scale_width_ =  FromStringS9<float_t>( *file_settings_["game/width"]);
+
+  node_controls_.Add(quad_controls_).Add(controls_shader_).Add(camera_second_);
+
+  TwAddButton(tweakbar_, "Fire Ball", on_button_fire_clicked, NULL, " label='Fire a ball.' ");
+  TwAddButton(tweakbar_, "Reset Game", on_button_reset_clicked, NULL, " label='Reset the game.' ");
+  TwAddButton(tweakbar_, "Reset Tracking", on_button_tracking_clicked, NULL, " label='Reset the skeleton tracking.' ");
+  TwAddButton(tweakbar_, "Start / Stop Game", on_button_auto_game_clicked, NULL, " label='Start or Stop the game.' ");
+  TwAddButton(tweakbar_, "Reset Rift", on_button_oculus_clicked, NULL, " label='Reset the Oculus View.'");
+  TwAddButton(tweakbar_, "Quit", on_button_quit_clicked, NULL, " label='Quit.' ");
+  TwAddVarRW(tweakbar_, "Arm Emphasis", TW_TYPE_BOOL8, &arm_emphasis_, "label='Toggle Arm Emphasis'");
+  
+  TwAddVarRW(tweakbar_, "Scale Width", TW_TYPE_FLOAT, &scale_width_, "label='Scale the width of the ball spawn point' min=0 max=10 step=0.01 ");
+  TwAddVarRW(tweakbar_, "Scale Speed", TW_TYPE_FLOAT, &scale_speed_, "label='Scale the Speed of the Balls' min=0 max=10 step=0.01 ");
+
+  TwEnumVal armsEV[] = { {BOTH_ARMS, "Both Arms Free"}, {LEFT_ARM_COPY, "Left Arm Copy"}, {LEFT_ARM_RIGHT_MIRROR, "Left Arm Right Mirror"}, 
+    {LEFT_ARM_RIGHT_FROZEN, "Left Arm, Right Frozen"}, {RIGHT_ARM_COPY, "Right Arm Copy"},
+    {RIGHT_ARM_LEFT_MIRROR, "Right Arm, Left Mirror"}, {RIGHT_ARM_LEFT_FROZEN, "Right Arm, Left Frozen"}};
+
+
+  TwType armsType;
+ 
+  armsType = TwDefineEnum("ArmsType", armsEV, 7);
+  // Adding season to bar
+  TwAddVarRW(tweakbar_, "Arm Behaviour", armsType, &arm_state_, NULL);
+
+}
 
 
 /*
- * Called when the mainloop starts, just once
+ * Called when the oculus window is created
  */
 
- void PhantomLimb::Init(){
-
-  // Load settings
-  file_settings_.LoadFile(s9::File("./data/settings.xml"));
+ void PhantomLimb::InitOculusDisplay(){
 
   std::srand(std::time(0)); 
 
@@ -149,7 +212,9 @@ using namespace s9::oni;
 
 // Moved onto the main thread as GCC gets upset on quitting the thread with OpenNI
 
-void PhantomLimb::UpdateMainThread(double_t dt) { 
+void PhantomLimb::ThreadMainLoop(double_t dt) { 
+
+  oculus_.Update(dt);
 
   // update the skeleton positions
   md5_.skeleton().Update();
@@ -386,25 +451,34 @@ void PhantomLimb::UpdateMainThread(double_t dt) {
     physics_.MoveRightHand(hand_pos_right_final_);
   }
 
-
- 
-
-
 }
 
-void PhantomLimb::Update(double_t dt) {
 
-   // Update Oculus - take the difference
-  oculus_.Update(dt);
+void PhantomLimb::DrawSecondDisplay(double_t dt){
+  glClearBufferfv(GL_COLOR, 0, &glm::vec4(0.1f, 0.9f, 0.9f, 1.0f)[0]);
+  GLfloat depth = 1.0f;
+  glClearBufferfv(GL_DEPTH, 0, &depth );
 
+
+  if (fbo_){
+    fbo_.colour().Bind();
+    node_controls_.Draw();
+    fbo_.colour().Unbind();
+  }
+
+  TwDraw();
+
+  CXGLERROR
 }
+
+
 
 
 /*
  * Called as fast as possible. Not set FPS wise but dt is passed in
  */
 
- void PhantomLimb::Display(GLFWwindow* window, double_t dt){
+ void PhantomLimb::DrawOculusDisplay(double_t dt){
 
   GLfloat depth = 1.0f;
 
@@ -420,7 +494,6 @@ void PhantomLimb::Update(double_t dt) {
     }
   }
 
-  UpdateMainThread(dt);
 
   // Create the FBO and setup the cameras
   if (!fbo_ && oculus_.Connected()){
@@ -581,226 +654,98 @@ PhantomLimb::~PhantomLimb() {
 
 }
 
+void PhantomLimb::Close() {
+
+  // Shutdown a few things first - order is important
+
+  // Write back file settings
+  file_settings_["game/speed/factor"].SetValue(scale_speed_);
+  file_settings_["game/width"].SetValue(scale_width_);
+
+  // shutdown systems
+  openni_.Shutdown();
+  Shutdown();
+}
+
+
+void PhantomLimb::ProcessEvent( const GLWindow &window, CloseWindowEvent e) {
+  cout << "Phantom Limb Shutting down." << endl;
+  Close();
+}
 
 /*
  * This is called by the wrapper function when an event is fired
  */
 
-void PhantomLimb::ProcessEvent(MouseEvent e, GLFWwindow* window){}
+ void PhantomLimb::ProcessEvent( const GLWindow &window, MouseEvent e){
+
+ }
 
 /*
- * Called when the window is Resized. You should set cameras here
+ * Called when the window is resized. You should set cameras here
  */
 
-void PhantomLimb::ProcessEvent(ResizeEvent e, GLFWwindow* window){
-  camera_ortho_.Resize(e.w,e.h);
+ void PhantomLimb::ProcessEvent( const GLWindow &window, ResizeEvent e){
+
+  if ( window.window_name().compare("PhantomLimb Oculus Window") == 0) {
+    camera_ortho_.Resize(e.w,e.h);
+  } else {
+
+
+    TwWindowSize(e.w,e.h);
+    camera_second_.Resize(e.w,e.h);
+
+    glm::mat4 model_matrix =   glm::translate(glm::mat4(1.0f), glm::vec3(e.w / 2.0f, e.h/2.0f, 0.0f)); 
+    //glm::scale(model_matrix, glm::vec3(e.w,e.h,1.0f));
+  
+    node_controls_.set_matrix( model_matrix );
+
+     //node_controls_.set_matrix(glm::translate(glm::mat4(1.0f), glm::vec3(e.w / 2.0f, e.h/2.0f, 0.0f)));
+  }
 }
 
-void PhantomLimb::ProcessEvent(KeyboardEvent e, GLFWwindow* window){}
-
-
-
-/*
- * The UX window Class
- */
-
-#ifdef _SEBURO_LINUX
-
-
-///\todo passing in the gtk_app is a bit naughty I think
-UXWindow::UXWindow(gl::WithUXApp &gtk_app, PhantomLimb &app, XMLSettings &settings) : gtk_app_(gtk_app), app_(app), file_settings_(settings)  {  
-
-  //Glib::RefPtr< Screen > screen =  Gdk::Screen::get_default();
-  //Glib::RefPtr<Display> display = screen->get_display();
-
-  maximize();
-  fullscreen();
-
-  // Sets the border width of the window.
-  set_border_width(10);
-
-  // When the button receives the "clicked" signal, it will call the
-  // on_button_clicked() method defined below.
-  button_fire_ = new Gtk::Button("Fire Ball");
-  button_fire_->signal_clicked().connect(sigc::mem_fun(*this, &UXWindow::on_button_fire_clicked));
-  button_fire_->set_hexpand(true);
-  button_fire_->set_vexpand(true);
-
-
-  button_reset_ = new Gtk::Button("Reset Game");
-  button_reset_->signal_clicked().connect(sigc::mem_fun(*this, &UXWindow::on_button_reset_clicked));
-  button_reset_->set_hexpand(true);
-  button_reset_->set_vexpand(true);
-
-  button_auto_game_ = new Gtk::Button("Auto Game Start / Stop");
-  button_auto_game_->signal_clicked().connect(sigc::mem_fun(*this, &UXWindow::on_button_auto_game_clicked));
-  button_auto_game_->set_hexpand(true);
-  button_auto_game_->set_vexpand(true);
-
-  button_oculus_ = new Gtk::Button("Reset Oculus View");
-  button_oculus_->signal_clicked().connect(sigc::mem_fun(*this, &UXWindow::on_button_oculus_clicked));
-  button_oculus_->set_hexpand(true);
-  button_oculus_->set_vexpand(true);
-
-  button_tracking_ = new Gtk::Button("Restart Tracking");
-  button_tracking_->signal_clicked().connect(sigc::mem_fun(*this, &UXWindow::on_button_tracking_clicked));
-  button_tracking_->set_hexpand(true);
-  button_tracking_->set_vexpand(true);
-
-
-  button_quit_ = new Gtk::Button("Quit");
-  button_quit_->signal_clicked().connect(sigc::mem_fun(*this, &UXWindow::on_button_quit_clicked));
-  button_quit_->set_hexpand(true);
-  button_quit_->set_vexpand(true);
-
-  signal_delete_event().connect(sigc::mem_fun(*this, &UXWindow::on_window_closed));
-
-  button_emphasis_ = new Gtk::CheckButton("Arm-Game Emphasis");
-  button_emphasis_->signal_toggled().connect(sigc::mem_fun(*this, &UXWindow::on_button_emphasis_toggled));
-  button_emphasis_->set_hexpand(true);
-  button_emphasis_->set_vexpand(true);
-  button_emphasis_->set_active( FromStringS9<bool>(*file_settings_["game/emphasis"]) );
-
-
-  scale_speed_ = new Gtk::HScale();
-  scale_speed_->set_range(0.1,4.0);
-  scale_speed_->signal_value_changed().connect(sigc::mem_fun(*this, &UXWindow::on_scale_speed_changed));
-  scale_speed_->set_value( FromStringS9<float_t>(*file_settings_["game/speed/min"]) );
-
-  scale_speed_label_.set_text("Ball Speed");
-
-
-  scale_width_ = new Gtk::HScale();
-  scale_width_->set_range(0.01,2.0);
-  scale_width_->set_increments(0.01,0.01);
-  scale_width_->signal_value_changed().connect(sigc::mem_fun(*this, &UXWindow::on_scale_width_changed));
-  scale_width_->set_value( FromStringS9<float_t>(*file_settings_["game/width"]) );
-
-  scale_width_label_.set_text("Ball Spawn Width");
-
-  // Combo Box
-
-  combo_arms_.append("Both");
-  combo_arms_.append("Left Arm Track, No Mirror");
-  combo_arms_.append("Right Arm Track, No Mirror");
-  combo_arms_.append("Left Arm Track, Mirrored Right");
-  combo_arms_.append("Right Arm Track, Mirrored Left");
-  //combo_arms_.append("Left Arm, Copied Right");
-  //combo_arms_.append("Right Arm, Copied Left");
-
-  combo_arms_.set_active_text("Both");
-  combo_arms_.signal_changed().connect(sigc::mem_fun(*this, &UXWindow::on_combo_arms_changed));
-
-  // This packs the button into the Window (a container).
-  grid_.attach(*button_fire_,0,0,1,1);
-  grid_.attach(*button_reset_,0,1,1,1);
-  grid_.attach(*button_auto_game_,0,2,1,1);
-  grid_.attach(*button_tracking_,0,3,1,1);
-  grid_.attach(*button_quit_,0,4,1,1);
-
-  grid_.attach(*button_oculus_,1,0,2,1);
-  grid_.attach(combo_arms_,1,1,2,1);
-  grid_.attach(*button_emphasis_,1,2,2,1);
-
-  grid_.attach(*scale_speed_,2,3,1,1);
-  grid_.attach(scale_speed_label_,1,3,1,1);
-
-  grid_.attach(*scale_width_,2,4,1,1);
-  grid_.attach(scale_width_label_,1,4,1,1);
-
-  grid_.set_hexpand();
-  grid_.set_vexpand();
-
-  add(grid_);
-  show_all();
-
+void PhantomLimb::ProcessEvent( const GLWindow &window, KeyboardEvent e){
+  cout << "Key Pressed: " << e.key << endl;
 }
 
-UXWindow::~UXWindow() {
-  // Need to signal that we are done here
-  delete button_fire_;
-  delete button_reset_;
-  delete button_auto_game_;
-  delete button_tracking_;
-  delete button_oculus_;
-  delete button_quit_;
-  delete button_emphasis_;
-  delete scale_speed_;
+
+void PhantomLimb::MainLoop(double_t dt){
+  window_manager_.MainLoop();
 }
 
-void UXWindow::on_button_fire_clicked() {
+
+
+void TW_CALL PhantomLimb::on_button_fire_clicked(void * ) {
   cout << "Firing Ball" << endl;
-  app_.FireBall();
+  pp_->FireBall();
 }
 
-void UXWindow::on_button_reset_clicked() {
+
+void TW_CALL PhantomLimb::on_button_reset_clicked(void * ) {
   cout << "Reset Physics" << endl;
-  app_.ResetPhysics();
+  pp_->ResetPhysics();
 }
 
-void UXWindow::on_button_tracking_clicked() {
+void TW_CALL PhantomLimb::on_button_tracking_clicked(void * ) {
   cout << "Restarting Tracking" << endl;
-  app_.RestartTracking();
+  pp_->RestartTracking();
 }
 
 
-void UXWindow::on_button_auto_game_clicked() {
+void TW_CALL PhantomLimb::on_button_auto_game_clicked(void * ) {
   cout << "Auto Game Clicked" << endl;
-  app_.PlayGame(!app_.playing_game());
+  pp_->PlayGame(!pp_->playing_game());
 }
 
-void UXWindow::on_button_oculus_clicked() {
+void TW_CALL PhantomLimb::on_button_oculus_clicked(void * ) {
   cout << "Resetting Oculus View" << endl;
-  app_.ResetOculus();
+  pp_->ResetOculus();
 }
 
-void UXWindow::on_button_quit_clicked() {
+void TW_CALL PhantomLimb::on_button_quit_clicked(void * ) {
   cout << "Quitting PhantomLimb" << endl;
-  gtk_app_.Shutdown();
+  pp_->Close();
 }
-
-bool UXWindow::on_window_closed(GdkEventAny* event) {
-  cout << "Quitting PhantomLimb" << endl;
-  gtk_app_.Shutdown();
-  return false;
-}
-
-void UXWindow::on_button_emphasis_toggled() {
-  cout << "Arm Emphasis Toggle" << endl;
-  app_.set_arm_emphasis(button_emphasis_->get_active());
-  file_settings_["game/emphasis"].SetValue(button_emphasis_->get_active());
-}
-
-void UXWindow::on_scale_speed_changed() {
-  cout << "Speed Changed: " << scale_speed_->get_value() << endl;
-  file_settings_["game/speed/min"].SetValue(scale_speed_->get_value());
-}
-
-void UXWindow::on_scale_width_changed() {
-  cout << "Width Changed: " << scale_width_->get_value() << endl;
-  file_settings_["game/width"].SetValue(scale_width_->get_value());
-}
-
-void UXWindow::on_combo_arms_changed() {
-  Glib::ustring selected = combo_arms_.get_active_text();
-  if (selected.compare( Glib::ustring("Both")) == 0){
-    app_.SetHanded(BOTH_ARMS);
-  } else if (selected.compare( Glib::ustring("Left Arm Track, No Mirror")) == 0){
-    app_.SetHanded(LEFT_ARM_RIGHT_FROZEN);
-  } else if (selected.compare( Glib::ustring("Right Arm Track, No Mirror")) == 0) {
-    app_.SetHanded(RIGHT_ARM_LEFT_FROZEN);
-  }  else if (selected.compare( Glib::ustring("Left Arm Track, Mirrored Right")) == 0) {
-    app_.SetHanded(LEFT_ARM_RIGHT_MIRROR);
-  } else if (selected.compare( Glib::ustring("Right Arm Track, Mirrored Left")) == 0) {
-    app_.SetHanded(RIGHT_ARM_LEFT_MIRROR);
-  }/* else if (selected.compare( Glib::ustring("Left Arm, Copied Right")) == 0) {
-    app_.SetHanded(LEFT_ARM_COPY);
-  } else if (selected.compare( Glib::ustring("Right Arm, Copied Left")) == 0) {
-    app_.SetHanded(RIGHT_ARM_COPY);
-  }*/
-}
-
-#endif
 
 
 /*
@@ -818,30 +763,10 @@ int main (int argc, const char * argv[]) {
 
   PhantomLimb b(settings);
 
-#ifdef _SEBURO_OSX
-  WithUXApp a(b,argc,argv,3,2);
-#else
-  WithUXApp a(b,argc,argv);
-#endif
-
-#ifdef _SEBURO_LINUX
-  // Change HDMI-0 to whatever is listed in the output for the GLFW Monitor Screens
-
-
-  a.CreateWindowFullScreen("Oculus", 0, 0, settings["oculus_display"].Value().c_str());
-  
-  //a.CreateWindow("Oculus", 1280, 800);
-
-  UXWindow ux(a,b,settings);
-  a.Run(ux);
-
-  // Call shutdown once the GTK Run loop has quit. This makes GLFW quit cleanly
-  //a.Shutdown();
+  b.Run();
 
   settings.SaveFile(s9::File("./data/settings.xml"));
 
   return EXIT_SUCCESS;
-
-#endif
 
 }

@@ -9,6 +9,7 @@
 #ifndef PHANTOM_LIMB_HPP
 #define PHANTOM_LIMB_HPP
 
+#include "s9/application.hpp"
 #include "s9/common.hpp"
 #include "s9/file.hpp"
 #include "s9/camera.hpp"
@@ -27,9 +28,8 @@
 #include "s9/xml_parse.hpp"
 #include "s9/obj_mesh.hpp"
 
+#include <AntTweakBar/AntTweakBar.h>
 #include "physics.hpp"
-
-#include <gtkmm.h>
  
 namespace s9 {
 
@@ -49,59 +49,6 @@ namespace s9 {
 
 	class PhantomLimb;
 
-	/*
- 	 * UX Window for the Application. Runs on the main screen
- 	 */
-
-	class UXWindow : public Gtk::Window {
-
-	public:
-	  UXWindow(gl::WithUXApp &gtk_app, PhantomLimb &app, XMLSettings &settings);
-	  virtual ~UXWindow();
-
-	protected:
-	  //Signal handlers:
-	  void on_button_fire_clicked();
-	  void on_button_reset_clicked();
-	  void on_button_auto_game_clicked();
-	  void on_button_quit_clicked();
-	  void on_button_tracking_clicked();
-	  void on_button_oculus_clicked();
-	  bool on_window_closed(GdkEventAny* event);
-	  void on_combo_arms_changed();
-	  void on_button_emphasis_toggled();
-	  void on_scale_speed_changed();
-	  void on_scale_width_changed();
-
-	  // Layout
-
-	  Gtk::Grid		grid_;
-
-	  // Buttons
-	  Gtk::Button* button_fire_;
-	  Gtk::Button* button_auto_game_;
-	  Gtk::Button* button_reset_;
-	  Gtk::Button* button_oculus_;
-	  Gtk::Button* button_tracking_;
-	  Gtk::Button* button_quit_;
-
-	  Gtk::ComboBoxText combo_arms_;
-
-	  Gtk::CheckButton* button_emphasis_;
-
-	  Gtk::HScale* scale_speed_;
-	  Gtk::Label scale_speed_label_;
-
-	  Gtk::HScale* scale_width_;
-	  Gtk::Label scale_width_label_;
-
-
-	  PhantomLimb& app_;
-	  gl::WithUXApp& gtk_app_;
-
-	  XMLSettings &file_settings_;
-
-	};
 
 #endif
 
@@ -109,20 +56,27 @@ namespace s9 {
  	 * Phantom Limb main Oculus 3D Application
  	 */
 
-	class PhantomLimb : public WindowApp<GLFWwindow*> {
+	class PhantomLimb : public Application, public WindowListener<gl::GLWindow>  {
 	public:
 		
-		PhantomLimb (XMLSettings &settings ) : file_settings_(settings) {};
+		PhantomLimb (XMLSettings &settings );
 		~PhantomLimb();
 
 		
-		void Init();
-		void Display(GLFWwindow* window, double_t dt);
-		void Update(double_t dt);
+		void InitOculusDisplay();
+		void InitSecondDisplay();
+		void DrawOculusDisplay(double_t dt);
+		void DrawSecondDisplay(double_t dt);
+		void ThreadMainLoop(double_t dt);
+		void MainLoop(double_t dt);
 
-		void ProcessEvent(MouseEvent e, GLFWwindow* window);
-		void ProcessEvent(KeyboardEvent e, GLFWwindow* window);
-		void ProcessEvent(ResizeEvent e, GLFWwindow* window);
+		
+		// Event handling - you can choose which to override
+		void ProcessEvent(const gl::GLWindow & window, MouseEvent e);
+		void ProcessEvent(const gl::GLWindow & window, KeyboardEvent e);
+		void ProcessEvent(const gl::GLWindow & window, ResizeEvent e);
+		void ProcessEvent(const gl::GLWindow & window, CloseWindowEvent e);
+
 
 		// UX Interface functions
 		void FireBall();
@@ -141,8 +95,13 @@ namespace s9 {
 
 	protected:
 
+		void Close();
+
+		// Window Manager
+		gl::GLFWWindowManager window_manager_;
+
 		// Geometry
-		Quad quad_;
+		Quad quad_, quad_controls_;
 
 		// Textures
 		gl::Texture texture_;
@@ -150,9 +109,11 @@ namespace s9 {
 		// Cameras
 		Camera camera_;
 		Camera camera_ortho_;
-		Camera 				camera_left_;
-		Camera 				camera_right_;
+		Camera camera_left_;
+		Camera camera_right_;
 		
+		Camera camera_second_;
+
 		// Global Nodes
 
 		Node node_model_;
@@ -164,12 +125,17 @@ namespace s9 {
 
     Node 					node_left_;
 		Node 					node_right_;
+
+		Node node_controls_;
 		
 		// Model Classes
 		MD5Model md5_;
 		SkeletonShape skeleton_shape_;
 
 		ObjMesh room_;
+
+		// Tweakbar
+		TwBar *tweakbar_;
 
 		// Oculus Rift
 		oculus::OculusBase oculus_;
@@ -204,6 +170,7 @@ namespace s9 {
 		gl::Shader shader_colour_;
 		gl::Shader shader_warp_;
 		gl::Shader shader_room_;
+		gl::Shader controls_shader_;
 
 		// Colours
 
@@ -224,12 +191,27 @@ namespace s9 {
 		bool playing_game_;
 		bool arm_emphasis_;
 		double_t last_shot_;
+		float_t scale_speed_;
+		float_t scale_width_;
 
 		ArmState arm_state_;
 		
 		// Read settings
 
 		XMLSettings &file_settings_;
+
+
+		// AntTweakbar Functions for the UX
+		// Annoyingly, they need to be static
+
+		static PhantomLimb* pp_;
+		static void TW_CALL on_button_fire_clicked(void * );
+		static void TW_CALL on_button_reset_clicked(void * );
+		static void TW_CALL on_button_tracking_clicked(void * );
+		static void TW_CALL on_button_auto_game_clicked(void * );
+		static void TW_CALL on_button_oculus_clicked(void * );
+		static void TW_CALL on_button_quit_clicked(void * );
+ 
 
 	};
 }

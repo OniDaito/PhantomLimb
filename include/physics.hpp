@@ -40,7 +40,7 @@ namespace s9 {
 
     void MoveRightHand(glm::vec3 pos);
 
-    std::vector<glm::mat4>& ball_orients () { CXSHARED return obj_->ball_orients; }
+    std::vector<glm::mat4>& ball_orients () { assert(obj_); return obj_->ball_orients; }
 
 
   private:

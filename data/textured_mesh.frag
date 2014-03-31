@@ -8,11 +8,11 @@ in vec2 vTexCoord;
 // Works with one light using the phong model
 
 // Material
-uniform vec4 uMatAmbient;
-uniform vec4 uMatDiffuse;
-uniform vec4 uMatSpecular;
-uniform vec4 uMatEmissive;
-uniform float uShine;
+uniform vec4 uMaterialAmbient;
+uniform vec4 uMaterialDiffuse;
+uniform vec4 uMaterialSpecular;
+uniform vec4 uMaterialEmissive;
+uniform float uMaterialShininess;
 
 ///\todo choose between both in the uber shader
 // At present rect works well but we are sending normalised coordinate
@@ -28,6 +28,6 @@ void main() {
   //vec4 texcolor = texture(uTexSampler0, vTexCoord);
   //fragColour = vec4(texcolor.rgb,1.0);
 
-  fragColour = uMatDiffuse;
+  fragColour = uMaterialDiffuse;
 
 }

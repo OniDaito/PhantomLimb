@@ -168,6 +168,12 @@ if (_SEBURO_LINUX)
   
   SEBURO_find_library(glfw)
 
+   # Sort out Freetype - including adding its special directory so includes work
+  SEBURO_find_library(freetype)
+  include_directories(${SEBURO_DIR}/include/freetype
+    ${SEBURO_INCLUDES}
+  )
+
   include_directories(${PROJECT_SOURCE_DIR}/lib
     ${SEBURO_DIR}/include
     ${SEBURO_INCLUDES}
@@ -383,9 +389,13 @@ elseif(_SEBURO_LINUX)
 
 endif()
 
+# AntTweakBar
+
+add_definitions(-DUSE_ANTTWEAKBAR)
+SEBURO_find_library(AntTweakBar)
+
 
 # Oculus Rift
-
 
 # OCULUS_INCLUDE_DIR - Directories containing the OCULUS include files
 # OCULUS_LIBRARIES - Libraries needed to use OCULUS.

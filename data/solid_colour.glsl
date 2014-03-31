@@ -32,11 +32,11 @@ void main() {
 precision highp float;
 
 in vec4 vVertexPosition;
-out vec4 fragColor;
+out vec4 fragColour;
 
 // Skinning defaults from Seburo
 uniform vec4 uColour;
 
 void main() {
-  fragColor = uColour;
+  fragColour = uColour;
 }

@@ -22,14 +22,14 @@ PhantomPhysics::PhantomPhysics(float_t gravity, float_t hand_radius)
 }
 
 void PhantomPhysics::Reset() {
-  CXSHARED
+  assert(obj_);
   obj_->ExitPhysics();
   obj_->InitPhysics();
 }
 
 void PhantomPhysics::AddBall(float_t radius, glm::vec3 pos, glm::vec3 velocity){
 
-  CXSHARED
+  assert(obj_);
 
   if ( obj_->balls.size() > 20)
     Reset();
@@ -74,7 +74,7 @@ void PhantomPhysics::AddBall(float_t radius, glm::vec3 pos, glm::vec3 velocity){
 
 // Update with dt in seconds passed
 void PhantomPhysics::Update(double dt){
-  CXSHARED
+  assert(obj_);
 
   obj_->update_mutex.lock();
   if (obj_->dynamics_world && obj_->running_) {
@@ -95,7 +95,7 @@ void PhantomPhysics::Update(double dt){
 }
 
 void PhantomPhysics::MoveLeftHand(glm::vec3 pos) {
-  CXSHARED
+  assert(obj_);
   //obj_->left_hand->translate( btVector3( pos.x, pos.y, pos.z ));
   btTransform newTrans;
 
@@ -107,7 +107,7 @@ void PhantomPhysics::MoveLeftHand(glm::vec3 pos) {
 }
 
 void PhantomPhysics::MoveRightHand(glm::vec3 pos){
-  CXSHARED
+  assert(obj_);
   //obj_->right_hand->translate( btVector3( pos.x, pos.y, pos.z ));
   btTransform newTrans;
   
