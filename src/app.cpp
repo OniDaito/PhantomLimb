@@ -642,9 +642,9 @@ void PhantomLimb::FireBall() {
   float_t rval0 = static_cast<float_t>(std::rand()) /  RAND_MAX;
   float_t rval1 = static_cast<float_t>(std::rand()) /  RAND_MAX;
 
-  float_t game_width = FromStringS9<float_t>(*file_settings_["game/width"]);
+  float_t game_width = scale_width_;
   float_t speed_min = FromStringS9<float_t>(*file_settings_["game/speed/min"]);
-  float_t speed_factor = FromStringS9<float_t>(*file_settings_["game/speed/factor"]);
+  float_t speed_factor = scale_speed_;
 
   float_t height_min = FromStringS9<float_t>(*file_settings_["game/height/min"]);
   float_t height_factor = FromStringS9<float_t>(*file_settings_["game/height/factor"]);
