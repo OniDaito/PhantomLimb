@@ -4,8 +4,8 @@ precision highp float;
 
 uniform sampler2D uTexSampler0;
 
-invariant in vec2 sLensCenter;
-invariant in vec2 sScreenCenter;
+uniform vec2 sLensCenter;
+uniform vec2 sScreenCenter;
 
 // Oculus specific uniforms
 uniform vec2 uScale;
@@ -15,7 +15,7 @@ uniform vec4 uChromAbParam;
 
 uniform float uDistortionScale;
 
-in vec2 sTexCoord;
+in vec2 vTexCoord;
 
 //layout(location = 0) out vec4 outColor; // GLSL 3.30 or higher only
 
@@ -25,11 +25,11 @@ out vec4 sOutColour; // GLSL 1.50 or higher
 
 void main(void)
 {
-  ivec2 tex_sizei = textureSize(uTexSampler0,0);
+  //ivec2 tex_sizei = textureSize(uTexSampler0,0);
   vec2 tex_size;
-  tex_size.x = float(tex_sizei.x);
-  tex_size.y = float(tex_sizei.y); 
-  vec2 tc = sTexCoord;
+  //tex_size.x = float(tex_sizei.x);
+  //tex_size.y = float(tex_sizei.y); 
+  vec2 tc = vTexCoord;
   tc.y = 1.0 - tc.y;
 
   vec2 theta = (tc - sLensCenter) * uScaleIn; // uScales to [-1, 1]
@@ -47,17 +47,19 @@ void main(void)
   }
   
 
-  float blue = texture(uTexSampler0, tc_blue * tex_size).b;
+  float blue = texture(uTexSampler0, tc_blue).b;
 
   vec2  tc_green = sLensCenter + uScale * uDistortionScale * rvector;
-  vec4  center = texture(uTexSampler0, tc_green * tex_size);
+  vec4  center = texture(uTexSampler0, tc_green);
 
   vec2  theta_red = rvector * (uChromAbParam.x + uChromAbParam.y * rSq);
   vec2  tc_red = sLensCenter + uScale * uDistortionScale * theta_red;
-  float red = texture(uTexSampler0, tc_red * tex_size).r;
+  float red = texture(uTexSampler0, tc_red).r;
 
 
-  sOutColour = vec4(red, center.g, blue, center.a);
+  //sOutColour = vec4(red, center.g, blue, center.a);
 
-  //sOutColour = texture(uTexSampler0, tc * tex_size);
+  //sOutColour = texture(uTexSampler0, vTexCoord);
+
+  sOutColour = vec4(1.0,1.0,0.0,1.0);
 }

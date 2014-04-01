@@ -101,7 +101,7 @@ namespace s9 {
 		gl::GLFWWindowManager window_manager_;
 
 		// Geometry
-		Quad quad_, quad_controls_;
+		Quad quad_, quad_controls_, quad_final_;
 
 		// Textures
 		gl::Texture texture_;
@@ -123,8 +123,10 @@ namespace s9 {
     Node node_left_hand_;
     Node node_right_hand_;
 
-    Node 					node_left_;
-		Node 					node_right_;
+    Node node_left_;
+		Node node_right_;
+
+		Node node_final_left_, node_final_right_;
 
 		Node node_controls_;
 		

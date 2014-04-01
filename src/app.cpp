@@ -47,7 +47,7 @@ void PhantomLimb::InitSecondDisplay() {
   camera_second_ = Camera(glm::vec3(0.0f,0.0f,1.0f));
   camera_second_.set_orthographic(true);
   
-  quad_controls_ = Quad(800,600);
+  quad_controls_ = Quad(1,1);
 
   TwWindowSize(800, 600);
 
@@ -97,9 +97,7 @@ void PhantomLimb::InitSecondDisplay() {
   shader_quad_= Shader( s9::File("./data/quad_texture.vert"), s9::File("./data/quad_texture.frag"));
   shader_colour_ = Shader(s9::File("./data/solid_colour.glsl"));
 
-  shader_warp_ = Shader( s9::File("./data/barrel.vert"), 
-        s9::File("./data/barrel.frag"),
-        s9::File("./data/barrel.geom"));
+  shader_warp_ = Shader( s9::File("./data/barrel.vert"), s9::File("./data/barrel.frag"));
 
   shader_room_ = Shader( s9::File("./data/basic_mesh.vert"),  s9::File("./data/textured_mesh.frag"));
 
@@ -187,6 +185,13 @@ void PhantomLimb::InitSecondDisplay() {
 
   node_left_.Add(camera_left_).Add(node_model_).Add(room_);
   node_right_.Add(camera_right_).Add(node_model_).Add(room_);
+
+
+  // Final Splatting
+
+  quad_final_ = Quad(1,1);
+  node_final_left_.Add(quad_final_).Add(camera_ortho_);
+  node_final_right_.Add(quad_final_).Add(camera_ortho_);
   
   // Game stuff
 
@@ -499,6 +504,9 @@ void PhantomLimb::DrawSecondDisplay(double_t dt){
   if (!fbo_ && oculus_.Connected()){
     
       glm::vec2 s = oculus_.fbo_size();
+
+      s = glm::vec2(2048,1024); // Override for the POT es 3 (even though 300 claims NPOT :S )
+
       fbo_ = FBO(static_cast<size_t>(s.x), static_cast<size_t>(s.y)); 
 
       camera_left_.Resize(static_cast<size_t>(s.x / 2.0f), static_cast<size_t>(s.y ));
@@ -510,8 +518,6 @@ void PhantomLimb::DrawSecondDisplay(double_t dt){
       camera_right_.set_projection_matrix(oculus_.right_projection());
 
       camera_ortho_.Resize(oculus_.screen_resolution().x, oculus_.screen_resolution().y);
-
-      glGenVertexArrays(1, &(null_VAO_));
       
   }
 
@@ -559,21 +565,6 @@ void PhantomLimb::DrawSecondDisplay(double_t dt){
 
     // Draw the hand collision units
 
-    // Draw textures from the camera
-    /*
-    glm::mat4 mat = glm::translate(glm::mat4(1.0f), glm::vec3(160,120,0));
-    node_depth_.set_matrix(mat);
-    openni_.texture_depth().Bind();
-    node_depth_.Draw();
-    openni_.texture_depth().Unbind();
-
-    mat = glm::translate(glm::mat4(1.0f), glm::vec3(480,120,0));
-    node_colour_.set_matrix(mat);
-    openni_.texture_colour().Bind();
-    node_colour_.Draw();
-    openni_.texture_colour().Unbind();
-
-    */
 
     fbo_.Unbind();
     //CXGLERROR
@@ -585,13 +576,12 @@ void PhantomLimb::DrawSecondDisplay(double_t dt){
     glClearBufferfv(GL_COLOR, 0, &glm::vec4(0.9f, 0.9f, 0.9f, 1.0f)[0]);
     glClearBufferfv(GL_DEPTH, 0, &depth );
 
-    glBindVertexArray(null_VAO_);
-
-    glViewport(0,0, camera_ortho_.width(), camera_ortho_.height());
+    //glViewport(0,0, camera_ortho_.width(), camera_ortho_.height());
 
     shader_warp_.Bind();
     fbo_.colour().Bind();
 
+    shader_warp_.s("uTexSampler0",0);
     shader_warp_.s("uDistortionOffset", oculus_.distortion_xcenter_offset()); // Can change with future headsets apparently
     shader_warp_.s("uDistortionScale", 1.0f/oculus_.distortion_scale());
     shader_warp_.s("uChromAbParam", oculus_.chromatic_abberation());
@@ -600,14 +590,31 @@ void PhantomLimb::DrawSecondDisplay(double_t dt){
     shader_warp_.s("uScaleIn", glm::vec2(4.0f,2.0f));
     shader_warp_.s("uHmdWarpParam",glm::vec4(1.0f,0.22f,0.24f,0.0f));
 
-    glDrawArrays(GL_POINTS, 0, 1);
+
+    glm::vec2 screenCenter = glm::vec2(0.5,0.5);
+    glm::vec2 lensCenter = glm::vec2(0.5 + oculus_.distortion_xcenter_offset() * 0.25, 0.5);
+
+    shader_warp_.s("sLensCenter", lensCenter);
+    shader_warp_.s("sScreenCenter", screenCenter);
+    shader_warp_.s("uModelMatrix", node_final_left_.matrix());
+    shader_warp_.s("uViewMatrix", camera_ortho_.view_matrix());
+    shader_warp_.s("uProjectionMatrix", camera_ortho_.projection_matrix());
+
+    node_final_left_.Draw();
+
+    screenCenter = glm::vec2(0.5,0.5);
+    lensCenter = glm::vec2(0.5 + oculus_.distortion_xcenter_offset() * 0.25, 0.5);
+
+    shader_warp_.s("sLensCenter", lensCenter);
+    shader_warp_.s("sScreenCenter", screenCenter);
+    shader_warp_.s("uModelMatrix", node_final_right_.matrix());
+
+    node_final_right_.Draw();
 
     fbo_.colour().Unbind();
     shader_warp_.Unbind();
 
-    glBindVertexArray(0);
-
-    //CXGLERROR -  annoyingly there is an error
+    CXGLERROR
   }
 }
 
@@ -690,17 +697,24 @@ void PhantomLimb::ProcessEvent( const GLWindow &window, CloseWindowEvent e) {
 
  void PhantomLimb::ProcessEvent( const GLWindow &window, ResizeEvent e){
 
+
+
   if ( window.window_name().compare("PhantomLimb Oculus Window") == 0) {
     camera_ortho_.Resize(e.w,e.h);
+    glm::mat4 model_matrix =   glm::translate(glm::mat4(1.0f), glm::vec3(e.w * 0.25, e.h/2.0f, 0.0f)); 
+    model_matrix = glm::scale(model_matrix, glm::vec3(e.w * 0.5, e.h,1.0f));
+    node_final_left_.set_matrix(model_matrix);
+
+
+    model_matrix =   glm::translate(glm::mat4(1.0f), glm::vec3(e.w * 0.75, e.h/2.0f, 0.0f)); 
+    model_matrix = glm::scale(model_matrix, glm::vec3(e.w * 0.5, e.h,1.0f));
+    node_final_right_.set_matrix(model_matrix);
   } else {
 
-
+    glm::mat4 model_matrix =   glm::translate(glm::mat4(1.0f), glm::vec3(e.w / 2.0f, e.h/2.0f, 0.0f)); 
+    model_matrix = glm::scale(model_matrix, glm::vec3(e.w * 0.9, e.h * 0.9,1.0f));
     TwWindowSize(e.w,e.h);
     camera_second_.Resize(e.w,e.h);
-
-    glm::mat4 model_matrix =   glm::translate(glm::mat4(1.0f), glm::vec3(e.w / 2.0f, e.h/2.0f, 0.0f)); 
-    //glm::scale(model_matrix, glm::vec3(e.w,e.h,1.0f));
-  
     node_controls_.set_matrix( model_matrix );
 
      //node_controls_.set_matrix(glm::translate(glm::mat4(1.0f), glm::vec3(e.w / 2.0f, e.h/2.0f, 0.0f)));
