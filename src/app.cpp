@@ -596,6 +596,9 @@ void PhantomLimb::DrawSecondDisplay(double_t dt){
     shader_warp_.s("uDistortionScale", 1.0f/oculus_.distortion_scale());
     shader_warp_.s("uChromAbParam", oculus_.chromatic_abberation());
     shader_warp_.s("uHmdWarpParam",oculus_.distortion_parameters() );
+    shader_warp_.s("uScale", glm::vec2(0.25f,0.5f));
+    shader_warp_.s("uScaleIn", glm::vec2(4.0f,2.0f));
+    shader_warp_.s("uHmdWarpParam",glm::vec4(1.0f,0.22f,0.24f,0.0f));
 
     glDrawArrays(GL_POINTS, 0, 1);
 

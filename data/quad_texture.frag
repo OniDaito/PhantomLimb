@@ -1,4 +1,4 @@
-#version 330
+#version 300 es
 precision highp float;
 
 in vec4 vVertexPosition;
@@ -9,13 +9,15 @@ out vec4 fragColour;
 
 ///\todo choose between both in the uber shader
 // At present rect works well but we are sending normalised coordinates
-uniform sampler2DRect uBaseTex;
-//uniform sampler2D uBaseTex;
+//uniform sampler2DRect uBaseTex;
+uniform sampler2D uBaseTex;
 
 void main() {
-  vec2 texsize = textureSize(uBaseTex); 
+  ivec2 texsize = textureSize(uBaseTex,0); 
   vec2 fTexCoord =  vTexCoord;
-  fTexCoord.y = 1.0 - vTexCoord.y;
-	vec4 texcolour = texture(uBaseTex,fTexCoord * texsize);
+  fTexCoord.y = (1.0 - vTexCoord.y) * float(texsize.y);
+  fTexCoord.x = fTexCoord.x * float(texsize.x);
+  
+	vec4 texcolour = texture(uBaseTex,fTexCoord);
 	fragColour = vec4(texcolour.rgb,1.0);
 }

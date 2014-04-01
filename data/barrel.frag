@@ -1,19 +1,19 @@
-#version 150
-
+#version 300 es
+precision highp float;
 // https://github.com/dghost/glslRiftDistort
 
-uniform sampler2DRect uTexSampler0;
+uniform sampler2D uTexSampler0;
 
 invariant in vec2 sLensCenter;
 invariant in vec2 sScreenCenter;
 
 // Oculus specific uniforms
-uniform vec2 uScale = vec2(0.25,0.5);
-uniform vec2 uScaleIn = vec2(4.0,2.0);
-uniform vec4 uHmdWarpParam  = vec4(1.0,0.22,0.24,0.0);
+uniform vec2 uScale;
+uniform vec2 uScaleIn;
+uniform vec4 uHmdWarpParam;
 uniform vec4 uChromAbParam;
 
-uniform float uDistortionScale = 0.8;
+uniform float uDistortionScale;
 
 in vec2 sTexCoord;
 
@@ -25,7 +25,10 @@ out vec4 sOutColour; // GLSL 1.50 or higher
 
 void main(void)
 {
-  vec2 tex_size = textureSize(uTexSampler0); 
+  ivec2 tex_sizei = textureSize(uTexSampler0,0);
+  vec2 tex_size;
+  tex_size.x = float(tex_sizei.x);
+  tex_size.y = float(tex_sizei.y); 
   vec2 tc = sTexCoord;
   tc.y = 1.0 - tc.y;
 

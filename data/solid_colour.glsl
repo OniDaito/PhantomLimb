@@ -1,6 +1,6 @@
 ##>VERTEX
 
-#version 330
+#version 300 es
 precision highp float;
 
 out vec4 vVertexPosition;
@@ -28,7 +28,7 @@ void main() {
 
 ##>FRAGMENT
 
-#version 330
+#version 300 es
 precision highp float;
 
 in vec4 vVertexPosition;
