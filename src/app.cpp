@@ -187,11 +187,33 @@ void PhantomLimb::InitSecondDisplay() {
   node_right_.Add(camera_right_).Add(node_model_).Add(room_);
 
 
-  // Final Splatting
+  // Final Splatting - Create correct Quads for our warp shader
 
-  quad_final_ = Quad(1,1);
-  node_final_left_.Add(quad_final_).Add(camera_ortho_);
-  node_final_right_.Add(quad_final_).Add(camera_ortho_);
+  quad_final_left_= Quad(1,1);
+  quad_final_right_= Quad(1,1);
+
+  GeometryT<Vertex4, Face4, AllocationPolicyNew> &gLeft = quad_final_left_.geometry();
+
+  gLeft[0] = Vertex4 ( glm::vec4(-1, -1, 0.0f, 1.0f), glm::vec4(.0f, .0f, 1.0f, 1.0f), glm::vec4(1.0f), glm::vec2(0.0f,1.0f));
+  gLeft[1] = Vertex4 ( glm::vec4(0,  -1, 0.0f, 1.0f), glm::vec4(.0f, .0f, 1.0f, 1.0f), glm::vec4(1.0f), glm::vec2(0.5f,1.0f));
+  gLeft[2] = Vertex4 ( glm::vec4(0,  1, 0.0f, 1.0f), glm::vec4(.0f, .0f, 1.0f, 1.0f), glm::vec4(1.0f), glm::vec2(0.5f,0.0f));
+  gLeft[3] = Vertex4 ( glm::vec4(-1, -1, 0.0f, 1.0f), glm::vec4(.0f, .0f, 1.0f, 1.0f), glm::vec4(1.0f), glm::vec2(0.0f,1.0f));
+  gLeft[4] = Vertex4 ( glm::vec4(0,   1, 0.0f, 1.0f), glm::vec4(.0f, .0f, 1.0f, 1.0f), glm::vec4(1.0f), glm::vec2(0.5f,0.0f));
+  gLeft[5] = Vertex4 ( glm::vec4(-1,  1, 0.0f, 1.0f), glm::vec4(.0f, .0f, 1.0f, 1.0f), glm::vec4(1.0f), glm::vec2(0.0f,0.0f));
+
+  node_final_left_.Add(quad_final_left_).Add(camera_ortho_);
+
+
+  GeometryT<Vertex4, Face4, AllocationPolicyNew> &gRight = quad_final_right_.geometry();
+
+  gRight[0] = Vertex4 ( glm::vec4(0, -1, 0.0f, 1.0f), glm::vec4(.0f, .0f, 1.0f, 1.0f), glm::vec4(1.0f), glm::vec2(0.5f,1.0f));
+  gRight[1] = Vertex4 ( glm::vec4(1,  -1, 0.0f, 1.0f), glm::vec4(.0f, .0f, 1.0f, 1.0f), glm::vec4(1.0f), glm::vec2(1.0f,1.0f));
+  gRight[2] = Vertex4 ( glm::vec4(1,  1, 0.0f, 1.0f), glm::vec4(.0f, .0f, 1.0f, 1.0f), glm::vec4(1.0f), glm::vec2(1.0f,0.0f));
+  gRight[3] = Vertex4 ( glm::vec4(0, -1, 0.0f, 1.0f), glm::vec4(.0f, .0f, 1.0f, 1.0f), glm::vec4(1.0f), glm::vec2(0.5f,1.0f));
+  gRight[4] = Vertex4 ( glm::vec4(1,   1, 0.0f, 1.0f), glm::vec4(.0f, .0f, 1.0f, 1.0f), glm::vec4(1.0f), glm::vec2(1.0f,0.0f));
+  gRight[5] = Vertex4 ( glm::vec4(0,  1, 0.0f, 1.0f), glm::vec4(.0f, .0f, 1.0f, 1.0f), glm::vec4(1.0f), glm::vec2(0.5f,0.0f));
+
+  node_final_right_.Add(quad_final_right_).Add(camera_ortho_);
   
   // Game stuff
 
@@ -576,7 +598,7 @@ void PhantomLimb::DrawSecondDisplay(double_t dt){
     glClearBufferfv(GL_COLOR, 0, &glm::vec4(0.9f, 0.9f, 0.9f, 1.0f)[0]);
     glClearBufferfv(GL_DEPTH, 0, &depth );
 
-    //glViewport(0,0, camera_ortho_.width(), camera_ortho_.height());
+    glViewport(0,0, camera_ortho_.width(), camera_ortho_.height());
 
     shader_warp_.Bind();
     fbo_.colour().Bind();
@@ -591,23 +613,19 @@ void PhantomLimb::DrawSecondDisplay(double_t dt){
     shader_warp_.s("uHmdWarpParam",glm::vec4(1.0f,0.22f,0.24f,0.0f));
 
 
-    glm::vec2 screenCenter = glm::vec2(0.5,0.5);
-    glm::vec2 lensCenter = glm::vec2(0.5 + oculus_.distortion_xcenter_offset() * 0.25, 0.5);
+    glm::vec2 screenCenter = glm::vec2(0.25,0.5);
+    glm::vec2 lensCenter = glm::vec2(0.25 + oculus_.distortion_xcenter_offset() * 0.25, 0.5);
 
     shader_warp_.s("sLensCenter", lensCenter);
     shader_warp_.s("sScreenCenter", screenCenter);
-    shader_warp_.s("uModelMatrix", node_final_left_.matrix());
-    shader_warp_.s("uViewMatrix", camera_ortho_.view_matrix());
-    shader_warp_.s("uProjectionMatrix", camera_ortho_.projection_matrix());
 
     node_final_left_.Draw();
 
-    screenCenter = glm::vec2(0.5,0.5);
-    lensCenter = glm::vec2(0.5 + oculus_.distortion_xcenter_offset() * 0.25, 0.5);
+    screenCenter = glm::vec2(0.75,0.5);
+    lensCenter = glm::vec2(0.75 - oculus_.distortion_xcenter_offset() * 0.25, 0.5);
 
     shader_warp_.s("sLensCenter", lensCenter);
     shader_warp_.s("sScreenCenter", screenCenter);
-    shader_warp_.s("uModelMatrix", node_final_right_.matrix());
 
     node_final_right_.Draw();
 
@@ -701,14 +719,6 @@ void PhantomLimb::ProcessEvent( const GLWindow &window, CloseWindowEvent e) {
 
   if ( window.window_name().compare("PhantomLimb Oculus Window") == 0) {
     camera_ortho_.Resize(e.w,e.h);
-    glm::mat4 model_matrix =   glm::translate(glm::mat4(1.0f), glm::vec3(e.w * 0.25, e.h/2.0f, 0.0f)); 
-    model_matrix = glm::scale(model_matrix, glm::vec3(e.w * 0.5, e.h,1.0f));
-    node_final_left_.set_matrix(model_matrix);
-
-
-    model_matrix =   glm::translate(glm::mat4(1.0f), glm::vec3(e.w * 0.75, e.h/2.0f, 0.0f)); 
-    model_matrix = glm::scale(model_matrix, glm::vec3(e.w * 0.5, e.h,1.0f));
-    node_final_right_.set_matrix(model_matrix);
   } else {
 
     glm::mat4 model_matrix =   glm::translate(glm::mat4(1.0f), glm::vec3(e.w / 2.0f, e.h/2.0f, 0.0f)); 

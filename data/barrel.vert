@@ -13,6 +13,6 @@ uniform mat4 uViewMatrix;
 uniform mat4 uProjectionMatrix;
 
 void main() {            
-  gl_Position = uProjectionMatrix * uViewMatrix * uModelMatrix * vec4(aVertPosition,1.0f);
+  gl_Position = vec4(aVertPosition,1.0f);
   vTexCoord = aVertTexCoord;
 } 

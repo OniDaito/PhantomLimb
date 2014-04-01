@@ -57,9 +57,9 @@ void main(void)
   float red = texture(uTexSampler0, tc_red).r;
 
 
-  //sOutColour = vec4(red, center.g, blue, center.a);
+  sOutColour = vec4(red, center.g, blue, center.a);
 
   //sOutColour = texture(uTexSampler0, vTexCoord);
 
-  sOutColour = vec4(1.0,1.0,0.0,1.0);
+  //sOutColour = vec4(1.0,1.0,0.0,1.0);
 }

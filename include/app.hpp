@@ -101,7 +101,7 @@ namespace s9 {
 		gl::GLFWWindowManager window_manager_;
 
 		// Geometry
-		Quad quad_, quad_controls_, quad_final_;
+		Quad quad_, quad_controls_, quad_final_left_, quad_final_right_;
 
 		// Textures
 		gl::Texture texture_;
